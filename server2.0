@@ -1,0 +1,212 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import logging
+from datetime import datetime
+import os
+import uuid
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('server.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+
+app = Flask(__name__)
+CORS(app)
+
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+sensor_readings = []
+ml_results = []
+
+def add_log(level, message, details=None):
+    log_entry = {
+        'timestamp': datetime.now().isoformat(),
+        'level': level,
+        'message': message,
+        'details': details
+    }
+    if level == 'INFO':
+        logging.info(message)
+    elif level == 'WARNING':
+        logging.warning(message)
+    elif level == 'ERROR':
+        logging.error(message)
+    return log_entry
+
+@app.route('/data', methods=['POST'])
+def receive_data():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            add_log('ERROR', 'No JSON data received')
+            return jsonify({'status': 'error', 'message': 'No JSON data received'}), 400
+        
+        sensor = data.get('sensor')
+        value = data.get('value')
+        unit = data.get('unit')
+        
+        if sensor is None or value is None:
+            add_log('ERROR', 'Missing sensor or value', str(data))
+            return jsonify({'status': 'error', 'message': 'Missing sensor or value'}), 400
+        
+        reading = {
+            'id': len(sensor_readings) + 1,
+            'sensor': sensor,
+            'value': value,
+            'unit': unit,
+            'received_at': datetime.now().isoformat()
+        }
+        sensor_readings.append(reading)
+        
+        add_log('INFO', f"Sensor data received: {sensor}={value}{unit}", 
+                f"Total readings: {len(sensor_readings)}")
+        
+        return jsonify({
+            'status': 'ok',
+            'message': 'Data received',
+            'received_at': datetime.now().isoformat()
+        }), 201
+        
+    except Exception as e:
+        add_log('ERROR', f"Error processing data: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/status', methods=['GET'])
+def status():
+    add_log('INFO', 'Status check requested')
+    
+    return jsonify({
+        'status': 'online',
+        'service': 'HydroSmart Server',
+        'timestamp': datetime.now().isoformat(),
+        'version': '1.0.0',
+        'stats': {
+            'total_readings': len(sensor_readings),
+            'total_ml_results': len(ml_results)
+        }
+    }), 200
+
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    try:
+        if 'image' not in request.files:
+            add_log('ERROR', 'No image file in request')
+            return jsonify({'status': 'error', 'message': 'No image file'}), 400
+        
+        file = request.files['image']
+        
+        if file.filename == '':
+            add_log('ERROR', 'Empty filename')
+            return jsonify({'status': 'error', 'message': 'Empty filename'}), 400
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"photo_{timestamp}_{uuid.uuid4().hex[:8]}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        
+        file.save(filepath)
+        
+        add_log('INFO', f"Image uploaded", f"Filename: {filename}, Size: {os.path.getsize(filepath)} bytes")
+        
+        return jsonify({
+            'status': 'ok',
+            'message': 'Image uploaded',
+            'image_path': filepath,
+            'timestamp': datetime.now().isoformat()
+        }), 201
+        
+    except Exception as e:
+        add_log('ERROR', f"Error uploading image: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/ml_result', methods=['POST'])
+def receive_ml_result():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            add_log('ERROR', 'No JSON data received for ML result')
+            return jsonify({'status': 'error', 'message': 'No JSON data'}), 400
+        
+        image_id = data.get('image_id')
+        diagnosis = data.get('diagnosis')
+        confidence = data.get('confidence')
+        
+        if image_id is None or diagnosis is None:
+            add_log('ERROR', 'Missing image_id or diagnosis', str(data))
+            return jsonify({'status': 'error', 'message': 'Missing image_id or diagnosis'}), 400
+        
+        result = {
+            'id': len(ml_results) + 1,
+            'image_id': image_id,
+            'diagnosis': diagnosis,
+            'confidence': confidence,
+            'received_at': datetime.now().isoformat()
+        }
+        ml_results.append(result)
+        
+        add_log('INFO', f"ML result received", 
+                f"Image: {image_id}, Diagnosis: {diagnosis}, Confidence: {confidence}")
+        
+        return jsonify({
+            'status': 'ok',
+            'message': 'ML result received',
+            'received_at': datetime.now().isoformat()
+        }), 201
+        
+    except Exception as e:
+        add_log('ERROR', f"Error processing ML result: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/readings', methods=['GET'])
+def get_readings():
+    limit = request.args.get('limit', 100, type=int)
+    sensor_type = request.args.get('sensor', None)
+    
+    readings = sensor_readings[-limit:]
+    
+    if sensor_type:
+        readings = [r for r in readings if r['sensor'] == sensor_type]
+    
+    return jsonify({
+        'status': 'ok',
+        'count': len(readings),
+        'readings': readings
+    }), 200
+
+@app.route('/ml_results', methods=['GET'])
+def get_ml_results():
+    limit = request.args.get('limit', 100, type=int)
+    results = ml_results[-limit:]
+    
+    return jsonify({
+        'status': 'ok',
+        'count': len(results),
+        'results': results
+    }), 200
+
+@app.route('/logs', methods=['GET'])
+def get_logs():
+    limit = request.args.get('limit', 100, type=int)
+    
+    try:
+        with open('server.log', 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            logs = lines[-limit:]
+        
+        return jsonify({
+            'status': 'ok',
+            'count': len(logs),
+            'logs': logs
+        }), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
