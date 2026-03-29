@@ -1,0 +1,489 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import logging
+from datetime import datetime
+import os
+import uuid
+import base64
+from io import BytesIO
+from PIL import Image
+import numpy as np
+
+try:
+    import tensorflow as tf
+    from tensorflow.keras.models import load_model
+    from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+    AI_AVAILABLE = True
+except ImportError:
+    AI_AVAILABLE = False
+    print("Warning: TensorFlow not installed. AI features disabled.")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('server.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+
+app = Flask(__name__)
+CORS(app)
+
+UPLOAD_FOLDER = 'uploads'
+MODEL_FOLDER = 'models'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+if not os.path.exists(MODEL_FOLDER):
+    os.makedirs(MODEL_FOLDER)
+
+sensor_readings = []
+ml_results = []
+ai_predictions = []
+
+model = None
+
+def load_ai_model():
+    global model
+    if not AI_AVAILABLE:
+        return None
+    
+    model_path = os.path.join(MODEL_FOLDER, 'plant_disease_model.h5')
+    
+    if os.path.exists(model_path):
+        try:
+            model = load_model(model_path)
+            logging.info("AI model loaded successfully")
+            return model
+        except Exception as e:
+            logging.error(f"Error loading model: {str(e)}")
+            return None
+    else:
+        logging.warning("No AI model found. Creating a simple model for demo.")
+        try:
+            model = create_simple_model()
+            return model
+        except Exception as e:
+            logging.error(f"Error creating model: {str(e)}")
+            return None
+
+def create_simple_model():
+    if not AI_AVAILABLE:
+        return None
+    
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+    
+    model = Sequential([
+        Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)),
+        MaxPooling2D(2, 2),
+        Conv2D(64, (3, 3), activation='relu'),
+        MaxPooling2D(2, 2),
+        Conv2D(128, (3, 3), activation='relu'),
+        MaxPooling2D(2, 2),
+        Flatten(),
+        Dense(512, activation='relu'),
+        Dropout(0.5),
+        Dense(3, activation='softmax')
+    ])
+    
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    
+    dummy_input = np.zeros((1, 128, 128, 3))
+    model.predict(dummy_input)
+    
+    logging.info("Simple demo model created")
+    return model
+
+def preprocess_image(image_data):
+    try:
+        if isinstance(image_data, str):
+            if image_data.startswith('data:image'):
+                image_data = image_data.split(',')[1]
+            image_bytes = base64.b64decode(image_data)
+            image = Image.open(BytesIO(image_bytes))
+        elif isinstance(image_data, bytes):
+            image = Image.open(BytesIO(image_data))
+        else:
+            image = image_data
+        
+        image = image.resize((128, 128))
+        image_array = np.array(image)
+        
+        if len(image_array.shape) == 2:
+            image_array = np.stack([image_array] * 3, axis=-1)
+        elif image_array.shape[2] == 4:
+            image_array = image_array[:, :, :3]
+        
+        image_array = preprocess_input(image_array)
+        image_array = np.expand_dims(image_array, axis=0)
+        
+        return image_array
+    except Exception as e:
+        logging.error(f"Error preprocessing image: {str(e)}")
+        return None
+
+def analyze_plant_health(image_array):
+    global model
+    
+    if model is None or not AI_AVAILABLE:
+        return {
+            'diagnosis': 'unknown',
+            'confidence': 0.5,
+            'disease_type': 'model_not_available',
+            'recommendations': 'AI model not available. Please check installation.'
+        }
+    
+    try:
+        predictions = model.predict(image_array)
+        predicted_class = np.argmax(predictions[0])
+        confidence = float(np.max(predictions[0]))
+        
+        classes = ['healthy', 'diseased', 'nutrient_deficiency']
+        
+        if classes[predicted_class] == 'healthy':
+            diagnosis = 'healthy'
+            disease_type = None
+            recommendations = 'Plant appears healthy. Continue regular care.'
+        elif classes[predicted_class] == 'diseased':
+            diagnosis = 'diseased'
+            disease_type = 'bacterial_or_fungal_infection'
+            recommendations = 'Isolate plant. Remove affected leaves. Apply appropriate treatment.'
+        else:
+            diagnosis = 'nutrient_deficiency'
+            disease_type = 'nutrient_imbalance'
+            recommendations = 'Check pH levels. Adjust nutrient solution. Monitor EC levels.'
+        
+        return {
+            'diagnosis': diagnosis,
+            'confidence': confidence,
+            'disease_type': disease_type,
+            'recommendations': recommendations,
+            'predicted_class': predicted_class
+        }
+    except Exception as e:
+        logging.error(f"Error in AI analysis: {str(e)}")
+        return {
+            'diagnosis': 'error',
+            'confidence': 0,
+            'disease_type': 'analysis_error',
+            'recommendations': f'Error during analysis: {str(e)}'
+        }
+
+def add_log(level, message, details=None):
+    if level == 'INFO':
+        logging.info(message)
+    elif level == 'WARNING':
+        logging.warning(message)
+    elif level == 'ERROR':
+        logging.error(message)
+    return None
+
+@app.route('/data', methods=['POST'])
+def receive_data():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            add_log('ERROR', 'No JSON data received')
+            return jsonify({'status': 'error', 'message': 'No JSON data received'}), 400
+        
+        sensor = data.get('sensor')
+        value = data.get('value')
+        unit = data.get('unit')
+        
+        if sensor is None or value is None:
+            add_log('ERROR', 'Missing sensor or value', str(data))
+            return jsonify({'status': 'error', 'message': 'Missing sensor or value'}), 400
+        
+        reading = {
+            'id': len(sensor_readings) + 1,
+            'sensor': sensor,
+            'value': value,
+            'unit': unit,
+            'received_at': datetime.now().isoformat()
+        }
+        sensor_readings.append(reading)
+        
+        add_log('INFO', f"Sensor data received: {sensor}={value}{unit}", 
+                f"Total readings: {len(sensor_readings)}")
+        
+        return jsonify({
+            'status': 'ok',
+            'message': 'Data received',
+            'received_at': datetime.now().isoformat()
+        }), 201
+        
+    except Exception as e:
+        add_log('ERROR', f"Error processing data: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/status', methods=['GET'])
+def status():
+    add_log('INFO', 'Status check requested')
+    
+    return jsonify({
+        'status': 'online',
+        'service': 'HydroSmart Server with AI',
+        'timestamp': datetime.now().isoformat(),
+        'version': '2.0.0',
+        'ai_enabled': AI_AVAILABLE and model is not None,
+        'stats': {
+            'total_readings': len(sensor_readings),
+            'total_ml_results': len(ml_results),
+            'total_ai_predictions': len(ai_predictions)
+        }
+    }), 200
+
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    try:
+        if 'image' not in request.files:
+            add_log('ERROR', 'No image file in request')
+            return jsonify({'status': 'error', 'message': 'No image file'}), 400
+        
+        file = request.files['image']
+        
+        if file.filename == '':
+            add_log('ERROR', 'Empty filename')
+            return jsonify({'status': 'error', 'message': 'Empty filename'}), 400
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"photo_{timestamp}_{uuid.uuid4().hex[:8]}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        
+        file.save(filepath)
+        
+        add_log('INFO', f"Image uploaded", f"Filename: {filename}, Size: {os.path.getsize(filepath)} bytes")
+        
+        return jsonify({
+            'status': 'ok',
+            'message': 'Image uploaded',
+            'image_path': filepath,
+            'timestamp': datetime.now().isoformat()
+        }), 201
+        
+    except Exception as e:
+        add_log('ERROR', f"Error uploading image: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/analyze_image', methods=['POST'])
+def analyze_image():
+    try:
+        if not AI_AVAILABLE or model is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'AI model not available. Install TensorFlow and train a model.'
+            }), 503
+        
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No JSON data'}), 400
+        
+        image_data = data.get('image')
+        
+        if not image_data:
+            return jsonify({'status': 'error', 'message': 'No image data'}), 400
+        
+        image_array = preprocess_image(image_data)
+        
+        if image_array is None:
+            return jsonify({'status': 'error', 'message': 'Failed to process image'}), 400
+        
+        analysis_result = analyze_plant_health(image_array)
+        
+        prediction = {
+            'id': len(ai_predictions) + 1,
+            'timestamp': datetime.now().isoformat(),
+            'image_id': data.get('image_id', str(uuid.uuid4())),
+            'diagnosis': analysis_result['diagnosis'],
+            'confidence': analysis_result['confidence'],
+            'disease_type': analysis_result.get('disease_type'),
+            'recommendations': analysis_result.get('recommendations')
+        }
+        ai_predictions.append(prediction)
+        
+        add_log('INFO', f"AI analysis completed", 
+                f"Diagnosis: {analysis_result['diagnosis']}, Confidence: {analysis_result['confidence']:.2f}")
+        
+        return jsonify({
+            'status': 'ok',
+            'message': 'Image analyzed',
+            'result': analysis_result,
+            'prediction_id': prediction['id'],
+            'analyzed_at': datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        add_log('ERROR', f"Error analyzing image: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/ml_result', methods=['POST'])
+def receive_ml_result():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            add_log('ERROR', 'No JSON data received for ML result')
+            return jsonify({'status': 'error', 'message': 'No JSON data'}), 400
+        
+        image_id = data.get('image_id')
+        diagnosis = data.get('diagnosis')
+        confidence = data.get('confidence')
+        
+        if image_id is None or diagnosis is None:
+            add_log('ERROR', 'Missing image_id or diagnosis', str(data))
+            return jsonify({'status': 'error', 'message': 'Missing image_id or diagnosis'}), 400
+        
+        result = {
+            'id': len(ml_results) + 1,
+            'image_id': image_id,
+            'diagnosis': diagnosis,
+            'confidence': confidence,
+            'received_at': datetime.now().isoformat()
+        }
+        ml_results.append(result)
+        
+        add_log('INFO', f"ML result received", 
+                f"Image: {image_id}, Diagnosis: {diagnosis}, Confidence: {confidence}")
+        
+        if diagnosis != 'healthy':
+            add_log('WARNING', f"Unhealthy plant detected", 
+                    f"Image: {image_id}, Diagnosis: {diagnosis}")
+        
+        return jsonify({
+            'status': 'ok',
+            'message': 'ML result received',
+            'received_at': datetime.now().isoformat()
+        }), 201
+        
+    except Exception as e:
+        add_log('ERROR', f"Error processing ML result: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/readings', methods=['GET'])
+def get_readings():
+    limit = request.args.get('limit', 100, type=int)
+    sensor_type = request.args.get('sensor', None)
+    
+    readings = sensor_readings[-limit:]
+    
+    if sensor_type:
+        readings = [r for r in readings if r['sensor'] == sensor_type]
+    
+    return jsonify({
+        'status': 'ok',
+        'count': len(readings),
+        'readings': readings
+    }), 200
+
+@app.route('/ml_results', methods=['GET'])
+def get_ml_results():
+    limit = request.args.get('limit', 100, type=int)
+    results = ml_results[-limit:]
+    
+    return jsonify({
+        'status': 'ok',
+        'count': len(results),
+        'results': results
+    }), 200
+
+@app.route('/ai_predictions', methods=['GET'])
+def get_ai_predictions():
+    limit = request.args.get('limit', 100, type=int)
+    predictions = ai_predictions[-limit:]
+    
+    return jsonify({
+        'status': 'ok',
+        'count': len(predictions),
+        'predictions': predictions
+    }), 200
+
+@app.route('/logs', methods=['GET'])
+def get_logs():
+    limit = request.args.get('limit', 100, type=int)
+    
+    try:
+        with open('server.log', 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            logs = lines[-limit:]
+        
+        return jsonify({
+            'status': 'ok',
+            'count': len(logs),
+            'logs': logs
+        }), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/train_model', methods=['POST'])
+def train_model():
+    try:
+        if not AI_AVAILABLE:
+            return jsonify({'status': 'error', 'message': 'TensorFlow not installed'}), 503
+        
+        data = request.get_json()
+        epochs = data.get('epochs', 10) if data else 10
+        
+        add_log('INFO', f"Model training started", f"Epochs: {epochs}")
+        
+        from tensorflow.keras.preprocessing.image import ImageDataGenerator
+        
+        train_datagen = ImageDataGenerator(
+            rescale=1./255,
+            rotation_range=20,
+            width_shift_range=0.2,
+            height_shift_range=0.2,
+            horizontal_flip=True,
+            validation_split=0.2
+        )
+        
+        if os.path.exists('dataset/train'):
+            train_generator = train_datagen.flow_from_directory(
+                'dataset/train',
+                target_size=(128, 128),
+                batch_size=32,
+                class_mode='categorical',
+                subset='training'
+            )
+            
+            validation_generator = train_datagen.flow_from_directory(
+                'dataset/train',
+                target_size=(128, 128),
+                batch_size=32,
+                class_mode='categorical',
+                subset='validation'
+            )
+            
+            history = model.fit(
+                train_generator,
+                validation_data=validation_generator,
+                epochs=epochs,
+                verbose=1
+            )
+            
+            model.save(os.path.join(MODEL_FOLDER, 'plant_disease_model.h5'))
+            
+            add_log('INFO', f"Model training completed", 
+                    f"Final accuracy: {history.history['accuracy'][-1]:.2f}")
+            
+            return jsonify({
+                'status': 'ok',
+                'message': 'Model trained successfully',
+                'epochs': epochs,
+                'final_accuracy': float(history.history['accuracy'][-1])
+            }), 200
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'No dataset found. Create dataset/train folder with subfolders for each class.'
+            }), 400
+        
+    except Exception as e:
+        add_log('ERROR', f"Error training model: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+if __name__ == '__main__':
+    load_ai_model()
+    app.run(host='0.0.0.0', port=5000, debug=True)
