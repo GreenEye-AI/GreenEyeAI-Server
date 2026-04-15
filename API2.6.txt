@@ -1,0 +1,948 @@
+1. СЕРВЕР -> ФРОНТ
+
+1.1 Получение списка растений
+
+GET /api/plants
+
+GET /api/plants?status=unhealthy
+
+Ответ при status=unhealthy:
+{
+    "plants": [
+        {
+            "plant_id": 1,
+            "shelf_id": 1,
+            "status": "unhealthy",
+            "issues": "pH too low (5.0)",
+            "last_update": "2026-04-02T12:00:01"
+        }
+    ]
+}
+
+\\status=all или без параметра:
+{
+    "plants": [
+        {
+            "plant_id": 1,
+            "shelf_id": 1,
+            "status": "healthy",
+            "issues": null,
+            "last_update": "2026-04-02T12:00:01"
+        },
+        {
+            "plant_id": 2,
+            "shelf_id": 1,
+            "status": "unhealthy",
+            "issues": "pH too low (5.0)",
+            "last_update": "2026-04-02T12:00:01"
+        }
+    ]
+}
+
+\\status=healthy:
+{
+    "plants": [
+        {
+            "plant_id": 1,
+            "shelf_id": 1,
+            "status": "healthy",
+            "issues": null,
+            "last_update": "2026-04-02T12:00:01"
+        }
+    ]
+}
+
+\\status=invalid (ошибка):
+{
+    "error": "Invalid status value. Allowed: all, healthy, unhealthy"
+}
+
+\\растений нет:
+{
+    "plants": []
+}
+
+\\ошибка сервера:
+{
+    "error": "Internal server error"
+}
+
+
+1.2 Получение проблемных растений
+
+GET /api/plants/problematic
+
+Ответ:
+{
+    "plants": [
+        {
+            "plant_id": 1,
+            "shelf_id": 1,
+            "issues": {"pH too low": 5.0, "temperature high": 32.5},
+            "last_update": "2026-04-02T12:00:01"
+        }
+    ]
+}
+
+\\проблемных растений нет:
+{
+    "plants": []
+}
+
+\\растение с одной проблемой:
+{
+    "plants": [
+        {
+            "plant_id": 1,
+            "shelf_id": 1,
+            "issues": {"pH too low": 5.0},
+            "last_update": "2026-04-02T12:00:01"
+        }
+    ]
+}
+
+\\растение с критическим статусом:
+{
+    "plants": [
+        {
+            "plant_id": 1,
+            "shelf_id": 1,
+            "issues": {"water_level critical": 5},
+            "last_update": "2026-04-02T12:00:01"
+        }
+    ]
+}
+
+\\ошибка сервера:
+{
+    "error": "Internal server error"
+}
+
+
+1.3 Получение истории показаний
+
+GET /api/readings
+
+Параметры запроса:
+- plant_id (обязательно) - ID растения: 1, 2, 3...
+- limit (необязательно) - количество записей: 1-1000 (по умолчанию 100)
+- from_date (необязательно) - начальная дата: ISO формат
+- to_date (необязательно) - конечная дата: ISO формат
+
+Пример запроса:
+GET /api/readings?plant_id=1&limit=10&from_date=2026-04-01T00:00:00
+
+Ответ:
+{
+    "readings": [
+        {
+            "id": 1,
+            "plant_id": 1,
+            "shelf_id": 1,
+            "ph": 6.5,
+            "temperature": 23.5,
+            "humidity": 65,
+            "light": 1,
+            "water_level": 80,
+            "moisture": 40,
+            "diagnosis": "healthy",
+            "confidence": 0.95,
+            "image_url": "/uploads/photo_001.jpg",
+            "created_at": "2026-04-02T12:00:01"
+        }
+    ]
+}
+
+\\без limit (по умолчанию 100 записей):
+GET /api/readings?plant_id=1
+(ответ аналогичен, но с 100 записями)
+
+\\с to_date:
+GET /api/readings?plant_id=1&to_date=2026-04-02T23:59:59
+(возвращает записи только до указанной даты)
+
+\\нет показаний:
+{
+    "readings": []
+}
+
+\\не указан plant_id:
+{
+    "error": "plant_id is required"
+}
+
+\\растение не найдено:
+{
+    "error": "Plant not found"
+}
+
+\\диагноз unhealthy:
+{
+    "readings": [
+        {
+            "id": 2,
+            "plant_id": 1,
+            "shelf_id": 1,
+            "ph": 5.0,
+            "temperature": 23.5,
+            "humidity": 65,
+            "light": 1,
+            "water_level": 80,
+            "moisture": 40,
+            "diagnosis": "unhealthy",
+            "confidence": 0.87,
+            "image_url": "/uploads/photo_002.jpg",
+            "created_at": "2026-04-02T13:00:01"
+        }
+    ]
+}
+
+\\ошибка сервера:
+{
+    "error": "Internal server error"
+}
+
+
+
+2. ФРОНТ -> СЕРВЕР
+
+
+2.1 Управление поливом
+
+POST /api/command/water
+
+Пример запроса (включить полив):
+{
+    "state": "1"
+}
+
+Ответ при state=1:
+{
+    "status": "ok",
+    "message": "Watering started",
+    "state": "on"
+}
+
+\\state=0 (выключить полив):
+Запрос:
+{
+    "state": "0"
+}
+Ответ:
+{
+    "status": "ok",
+    "message": "Watering stopped",
+    "state": "off"
+}
+
+\\неверный state:
+Запрос:
+{
+    "state": "2"
+}
+Ответ:
+{
+    "error": "Invalid state. Use 1 or 0"
+}
+
+\\нет поля state:
+Запрос:
+{}
+Ответ:
+{
+    "error": "state is required"
+}
+
+\\ошибка отправки на ESP:
+{
+    "error": "Failed to send command"
+}
+
+
+2.2 Управление светом
+
+POST /api/command/light
+
+Пример запроса (включить свет):
+{
+    "state": "1"
+}
+
+Ответ при state=1:
+{
+    "status": "ok",
+    "message": "Light turned on",
+    "state": "on"
+}
+
+\\state=0 (выключить свет):
+Запрос:
+{
+    "state": "0"
+}
+Ответ:
+{
+    "status": "ok",
+    "message": "Light turned off",
+    "state": "off"
+}
+
+\\неверный state:
+{
+    "error": "Invalid state. Use 1 or 0"
+}
+
+\\нет поля state:
+{
+    "error": "state is required"
+}
+
+\\ошибка отправки на ESP:
+{
+    "error": "Failed to send command"
+}
+
+
+2.3 Управление вентилятором
+
+POST /api/command/fan
+
+Пример запроса (включить вентилятор):
+{
+    "state": "1"
+}
+
+Ответ при state=1:
+{
+    "status": "ok",
+    "message": "Fan turned on",
+    "state": "on"
+}
+
+\\state=0 (выключить вентилятор):
+Запрос:
+{
+    "state": "0"
+}
+Ответ:
+{
+    "status": "ok",
+    "message": "Fan turned off",
+    "state": "off"
+}
+
+\\неверный state:
+{
+    "error": "Invalid state. Use 1 or 0"
+}
+
+\\нет поля state:
+{
+    "error": "state is required"
+}
+
+\\ошибка отправки на ESP:
+{
+    "error": "Failed to send command"
+}
+
+
+2.4 Установка пороговых значений
+
+POST /api/command/thresholds
+
+Пример запроса (все параметры):
+{
+    "device_id": "esp_01",
+    "data": {
+        "ph": 6.5,
+        "temperature": 23.5,
+        "humidity": 65,
+        "light": 1,
+        "water_level": 80,
+        "confidence": 0.95,
+        "moisture": 40
+    }
+}
+
+Ответ:
+{
+    "status": "ok",
+    "message": "Thresholds updated"
+}
+
+\\только pH:
+Запрос:
+{
+    "device_id": "esp_01",
+    "data": {
+        "ph": 6.5
+    }
+}
+Ответ:
+{
+    "status": "ok",
+    "message": "Thresholds updated"
+}
+
+\\только температура и влажность:
+Запрос:
+{
+    "device_id": "esp_01",
+    "data": {
+        "temperature": 25.0,
+        "humidity": 70
+    }
+}
+Ответ:
+{
+    "status": "ok",
+    "message": "Thresholds updated"
+}
+
+\\нет device_id:
+Запрос:
+{
+    "data": {"ph": 6.5}
+}
+Ответ:
+{
+    "error": "device_id is required"
+}
+
+\\нет data:
+Запрос:
+{
+    "device_id": "esp_01"
+}
+Ответ:
+{
+    "error": "No threshold values provided"
+}
+
+\\устройство не найдено:
+{
+    "error": "Device not found"
+}
+
+\\ошибка сервера:
+{
+    "error": "Internal server error"
+}
+
+
+
+3. ESP -> СЕРВЕР
+
+
+3.1 Отправка показаний датчиков
+
+POST /api/sensors
+
+Пример запроса:
+{
+    "device_id": "esp_01",
+    "readings": {
+        "ph": 6.5,
+        "temperature": 23.5,
+        "humidity": 65,
+        "light": 1,
+        "fan": 1
+    }
+}
+
+Ответ:
+{
+    "status": "ok",
+    "message": "Data received",
+    "received_at": "2026-04-02T12:00:01"
+}
+
+\\нет device_id:
+Запрос:
+{
+    "readings": {"ph": 6.5}
+}
+Ответ:
+{
+    "error": "device_id is required"
+}
+
+\\нет readings:
+Запрос:
+{
+    "device_id": "esp_01"
+}
+Ответ:
+{
+    "error": "readings are required"
+}
+
+\\неверный pH:
+Запрос:
+{
+    "device_id": "esp_01",
+    "readings": {"ph": 20}
+}
+Ответ:
+{
+    "error": "Invalid ph value"
+}
+
+\\ошибка сервера:
+{
+    "error": "Internal server error"
+}
+
+
+3.2 Отправка фото
+
+POST /api/upload_photo
+
+Поля:
+- image (файл, обязательно)
+- device_id (строка, обязательно)
+
+Пример запроса:
+POST /api/upload_photo
+
+Ответ:
+{
+    "status": "ok",
+    "device_id": "esp_01",
+    "image_id": "photo_20260402_120001_001.jpg",
+    "url": "/uploads/photo_20260402_120001_001.jpg"
+}
+
+\\нет файла:
+{
+    "error": "No image file provided"
+}
+
+\\недопустимый тип файла:
+{
+    "error": "Invalid file type. Allowed: jpg, jpeg, png"
+}
+
+\\нет device_id:
+{
+    "error": "device_id is required"
+}
+
+\\ошибка сохранения:
+{
+    "error": "Failed to save image"
+}
+
+
+
+4. СЕРВЕР -> ESP
+
+
+
+4.1 Получение команд (ESP опрашивает)
+
+GET /api/esp/commands
+
+Параметры запроса:
+- device_id (обязательно) - ID ESP: esp_01, esp_02
+
+Пример запроса:
+GET /api/esp/commands?device_id=esp_01
+
+Ответ (есть команды):
+{
+    "status": "ok",
+    "commands": [
+        {
+            "id": 1,
+            "type": "light_on",
+            "params": {},
+        },
+        {
+            "id": 2,
+            "type": "fan_on",
+            "params": {},
+        }
+    ]
+}
+
+\\нет команд:
+{
+    "status": "ok",
+    "commands": []
+}
+
+\\команда water_on с параметрами:
+{
+    "status": "ok",
+    "commands": [
+        {
+            "id": 3,
+            "type": "water_on",
+            "params": {"duration": 30},
+        }
+    ]
+}
+
+\\команда make_photo:
+{
+    "status": "ok",
+    "commands": [
+        {
+            "id": 4,
+            "type": "make_photo",
+            "params": {},
+        }
+    ]
+}
+
+\\несколько команд разных типов:
+{
+    "status": "ok",
+    "commands": [
+        {
+            "id": 1,
+            "type": "light_off",
+            "params": {},
+        },
+        {
+            "id": 2,
+            "type": "water_on",
+            "params": {"duration": 30},
+        },
+        {
+            "id": 3,
+            "type": "make_photo",
+            "params": {},
+        }
+    ]
+}
+
+\\нет device_id:
+{
+    "error": "device_id is required"
+}
+
+\\ошибка сервера:
+{
+    "error": "Internal server error"
+}
+
+
+4.2 Получение пороговых значений (ESP забирает)
+
+GET /api/esp/thresholds
+
+Параметры запроса:
+- device_id (обязательно) - ID ESP: esp_01, esp_02
+
+Пример запроса:
+GET /api/esp/thresholds?device_id=esp_01
+
+Ответ:
+{
+    "ph": 6.5,
+    "temperature": 23.5,
+    "humidity": 65,
+    "light": 1,
+    "water_level": 80,
+    "moisture": 40
+}
+
+\\нет device_id:
+{
+    "error": "device_id is required"
+}
+
+\\устройство не найдено:
+{
+    "error": "Device not found"
+}
+
+\\ошибка сервера:
+{
+    "error": "Internal server error"
+}
+
+
+4.3 Подтверждение выполнения команды
+
+POST /api/esp/command/status
+
+Пример запроса (успешно):
+{
+    "command_id": 1,
+    "status": "executed",
+    "device_id": "esp_01",
+    "result": "success"
+}
+
+Ответ:
+{
+    "status": "ok",
+    "message": "Command status updated"
+}
+
+\\команда выполнена с ошибкой:
+Запрос:
+{
+    "command_id": 2,
+    "status": "failed",
+    "device_id": "esp_01",
+    "result": "light not responding"
+}
+Ответ:
+{
+    "status": "ok",
+    "message": "Command status updated"
+}
+
+\\без result (опционально):
+Запрос:
+{
+    "command_id": 1,
+    "status": "executed",
+    "device_id": "esp_01"
+}
+Ответ:
+{
+    "status": "ok",
+    "message": "Command status updated"
+}
+
+\\нет command_id:
+Запрос:
+{
+    "status": "executed",
+    "device_id": "esp_01"
+}
+Ответ:
+{
+    "error": "command_id is required"
+}
+
+\\нет status:
+Запрос:
+{
+    "command_id": 1,
+    "device_id": "esp_01"
+}
+Ответ:
+{
+    "error": "status is required"
+}
+
+\\неверный status:
+Запрос:
+{
+    "command_id": 1,
+    "status": "invalid",
+    "device_id": "esp_01"
+}
+Ответ:
+{
+    "error": "Invalid status. Allowed: executed, failed"
+}
+
+\\команда не найдена:
+{
+    "error": "Command not found"
+}
+
+\\ошибка сервера:
+{
+    "error": "Internal server error"
+}
+
+
+4.4 Получение статуса ESP (фронт запрашивает)
+
+GET /api/esp/status
+
+Параметры запроса:
+- device_id (обязательно) - ID ESP: esp_01, esp_02
+
+Пример запроса:
+GET /api/esp/status?device_id=esp_01
+
+Ответ:
+{
+    "status": "ok",
+    "data": {
+        "moisture": 35,
+        "temperature": 27,
+        "water_level": 80,
+        "ph": 6.5,
+        "light": 1
+    }
+}
+
+\\ESP не отвечает:
+{
+    "error": "Device offline"
+}
+
+\\нет device_id:
+{
+    "error": "device_id is required"
+}
+
+\\ошибка сервера:
+{
+    "error": "Internal server error"
+}
+
+
+4.5 Команда сделать фото
+
+POST /api/commands/make_photo
+
+Пример запроса:
+{} (тело пустое)
+
+Ответ:
+{
+    "status": "ok",
+    "message": "Photo command sent"
+}
+
+\\ошибка отправки:
+{
+    "error": "Failed to send command"
+}
+
+
+
+5. СТАТУС СЕРВЕРА
+
+
+5.1 Проверка статуса
+
+GET /api/status
+
+Пример запроса:
+GET /api/status
+
+Ответ (сервер работает):
+{
+    "status": "online",
+    "timestamp": "2026-04-02T12:00:01",
+    "uptime": 3600,
+    "db_status": "connected"
+}
+
+\\проблемы с БД:
+{
+    "status": "degraded",
+    "db_status": "disconnected"
+}
+
+\\сервер только запущен:
+{
+    "status": "online",
+    "timestamp": "2026-04-02T12:00:01",
+    "uptime": 5,
+    "db_status": "connected"
+}
+
+
+
+6. ML МОДЕЛЬ -> СЕРВЕР
+
+
+6.1 Получение списка фото для анализа (ML забирает)
+
+GET /api/ml/tasks?status=pending
+
+Параметры запроса:
+- status (необязательно) - pending, completed (по умолчанию pending)
+
+Пример запроса:
+GET /api/ml/tasks?status=pending
+
+Ответ:
+{
+    "tasks": [
+        {
+            "image_id": "photo_20260404_120001_001.jpg",
+            "url": "/uploads/photo_20260404_120001_001.jpg",
+            "plant_id": 1,
+            "created_at": "2026-04-04T12:00:01"
+        }
+    ]
+}
+
+\\нет фото для анализа:
+{
+    "tasks": []
+}
+
+\\ошибка сервера:
+{
+    "error": "Internal server error"
+}
+
+
+6.2 Отправка результата анализа
+
+POST /api/ml/result
+
+Пример запроса:
+{
+    "image_id": "photo_20260404_120001_001.jpg",
+    "plant_id": 1,
+    "diagnosis": "diseased",
+    "confidence": 0.87,
+    "disease_type": "fungal_infection",
+    "recommendations": "Apply fungicide"
+}
+
+Ответ:
+{
+    "status": "ok",
+    "message": "ML result saved",
+    "saved_at": "2026-04-04T12:00:02"
+}
+
+\\нет image_id:
+{
+    "error": "image_id is required"
+}
+
+\\нет plant_id:
+{
+    "error": "plant_id is required"
+}
+
+\\нет diagnosis:
+{
+    "error": "diagnosis is required"
+}
+
+\\неверный diagnosis:
+{
+    "error": "Invalid diagnosis. Allowed: healthy, warning, unhealthy, critical"
+}
+
+\\фото не найдено:
+{
+    "error": "Image not found"
+}
+
+\\ошибка сервера:
+{
+    "error": "Internal server error"
+}
+
+
+
+
+
+
+
+
+DEVICE_MAPPING = {
+    "AA:BB:CC:DD:EE:FF": {"id": "esp_01", "shelf": 1},
+    "11:22:33:44:55:66": {"id": "esp_02", "shelf": 2},
+}
