@@ -262,53 +262,39 @@ GET /api/status
 1. ESP -> Сервер (показания датчиков)
 POST /api/esp/sensors
 {
-    "type": "sensors",
     "temperature": 23.5,
     "humidity": 65
 }
 
-2. ESP -> Сервер (подтверждение команды)
+2. ESP -> Сервер (запрос команд)
+GET /api/esp/get_command
+**без тела запроса
 
+3. Сервер -> ESP (команда)
 {
-    "type": "command_ack",
-    "command_id": 123,
-    "status": "executed"
-}
-3. ESP -> Сервер (запрос команд)
-
-{
-    "type": "get_commands"
-}
-
-4. Сервер -> ESP (команда)
-
-{
-    "type": "command",
     "command_id": 123,
     "device": "light",
     "action": "on"
 }
 
-5. Сервер -> ESP (ответ на запрос команд)
-
+4. ESP -> Сервер (подтверждение команды)
+POST /api/esp/command_ask
 {
-    "type": "commands_list",
-    "commands": [
-        {"id": 1, "type": "light_on", "params": {}},
-	{"id": 2, "type": "fan_off", "params": {}},
-        {"id": 3, "type": "water_on", "params": {"duration": 30}}
-    ]
+    "command_id": 123,
+    "status": "executed"
 }
-
 
 Полная схема общения
 
-ESP → Сервер: {"type": "get_commands"}
-Сервер → ESP: {"type": "commands_list", "commands": [...]}
+ESP → Сервер: {"temperature": 23.5, "humidity": 65}
 
-ESP → Сервер: {"type": "sensors", "temperature": 23.5, "humidity": 65}
+ESP → Сервер: GET /api/esp/get_command
 
-ESP → Сервер: {"type": "command_ack", "command_id": 123, "status": "executed"}
+Сервер → ESP: {"command_id": 123, "device": "light", "action": "on"}
+
+ESP → Сервер: {"command_id": 123, "status": "executed"}
+
+
 
 
 
