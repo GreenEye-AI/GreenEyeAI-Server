@@ -236,6 +236,13 @@ json
     "message": "Deleted 15 old sick plant photos"
 }
 
+2.8 Сделать фото
+
+POST/api/admin/make_photo
+{
+	"admin": "=A%SSFWEDX"
+}
+
 3. СТАТУС СЕРВЕРА
 GET /api/status
 
