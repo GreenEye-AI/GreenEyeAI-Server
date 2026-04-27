@@ -317,14 +317,10 @@ ESP → Сервер: {"type": "command_ack", "command_id": 123, "status": "exec
 Сервер -> ML модель (HTTP POST):
 
 POST
-
- http://ml_model:5001/analyze
-Content-Type: application/json
-
+http://ml_model:5001/analyze
 {
     "image_id": "plant_1_20260422_120001.jpg",
     "image_base64": "/9j/4AAQSkZJRg...",
-    "plant_id": 1
 }
 
 
@@ -334,11 +330,8 @@ ML модель -> Сервер (HTTP POST):
 
 
 POST http://server:8000/api/ml/result
-Content-Type: application/json
-
 {
     "image_id": "plant_1_20260422_120001.jpg",
-    "plant_id": 1,
     "diagnosis": "healthy",
     "confidence": 0.95
 }
