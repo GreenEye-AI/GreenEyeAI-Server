@@ -259,15 +259,8 @@ GET /api/status
 
 
 
-
-WebSocket подключение
-
-ws://<server_ip>:8000/ws/esp?device_id=esp_01
-
-Форматы сообщений (все через один WebSocket)
-
 1. ESP -> Сервер (показания датчиков)
-
+POST /api/esp/sensors
 {
     "type": "sensors",
     "temperature": 23.5,
