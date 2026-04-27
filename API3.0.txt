@@ -272,10 +272,13 @@ GET /api/esp/get_command
 
 3. Сервер -> ESP (команда)
 {
+    "queue_size": 3,
     "command_id": 123,
     "device": "light",
     "action": "on"
 }
+
+если нет команд, то "device": "None"
 
 4. ESP -> Сервер (подтверждение команды)
 POST /api/esp/command_ask
