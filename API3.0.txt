@@ -266,8 +266,10 @@ POST /api/esp/sensors
     "humidity": 65
 }
 
+\\Сервер сохраняет в БД данные
+
 2. ESP -> Сервер (запрос команд)
-GET /api/esp/get_command
+GET /api/esp/command
 **без тела запроса
 
 3. Сервер -> ESP (команда)
@@ -281,11 +283,14 @@ GET /api/esp/get_command
 если нет команд, то "device": "None"
 
 4. ESP -> Сервер (подтверждение команды)
-POST /api/esp/command_ask
+POST /api/esp/command
 {
     "command_id": 123,
     "status": "executed"
 }
+
+\\Сервер удаляет из очереди команду
+
 
 Полная схема общения
 
