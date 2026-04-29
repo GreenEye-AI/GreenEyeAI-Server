@@ -97,7 +97,7 @@ GET /api/graph/sensors?period=day
 }
 1.6 Получение текущего режима
 
-GET /api/mode
+GET /api/web/mode
 
 Ответ:
 
@@ -129,17 +129,12 @@ GET /api/schedules
 2.1 Управление поливом
 POST /api/command/water
 
-
 {"state": "on"}   // включить
 {"state": "off"}   // выключить
 Ответ:
+HTTP 200 / 400 / 500
 
 
-{
-    "status": "ok",
-    "message": "Watering started",
-    "state": "on"
-}
 
 2.2 Управление светом
 POST /api/command/light
@@ -149,13 +144,7 @@ POST /api/command/light
 {"state": "off"}   // выключить
 
 Ответ:
-
-
-{
-    "status": "ok",
-    "message": "Light turned on",
-    "state": "on"
-}
+HTTP 200 / 400 / 500
 
 2.3 Управление вентилятором
 
@@ -166,13 +155,7 @@ POST /api/command/fan
 {"state": "off"}   // выключить
 
 Ответ:
-
-
-{
-    "status": "ok",
-    "message": "Fan turned on",
-    "state": "on"
-}
+HTTP 200 / 400 / 500
 
 2.4 Авторизация админа
 
@@ -194,7 +177,7 @@ POST /api/admin/login
 
 2.5 Установка режима
 
-POST /api/mode
+POST /api/web/mode
 
 
 {"mode": "auto"}   // или "manual"
@@ -241,7 +224,7 @@ POST /api/admin/cleanup/sick_plants
 
 POST/api/admin/make_photo
 {
-	"admin": "=A%SSFWEDX"
+	 "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
 }
 
 3. СТАТУС СЕРВЕРА
@@ -266,10 +249,8 @@ POST /api/esp/sensors
     "humidity": 65
 }
 
-\\Сервер сохраняет в БД данные
-
 2. ESP -> Сервер (запрос команд)
-GET /api/esp/command
+GET /api/esp/get_command
 **без тела запроса
 
 3. Сервер -> ESP (команда)
@@ -283,20 +264,17 @@ GET /api/esp/command
 если нет команд, то "device": "None"
 
 4. ESP -> Сервер (подтверждение команды)
-POST /api/esp/command
+POST /api/esp/command_ask
 {
     "command_id": 123,
     "status": "executed"
 }
 
-\\Сервер удаляет из очереди команду
-
-
 Полная схема общения
 
 ESP → Сервер: {"temperature": 23.5, "humidity": 65}
 
-ESP → Сервер: GET /api/esp/get_command
+ESP → Сервер: GET /api/esp/command
 
 Сервер → ESP: {"command_id": 123, "device": "light", "action": "on"}
 
