@@ -169,7 +169,6 @@ POST /api/admin/login
 
 ```json
 {
-    "status": "ok",
     "token": "165aeca1-e2ca-4938-94ee-e0b9e11d53d2",
     "expires_in": 86400
 }
