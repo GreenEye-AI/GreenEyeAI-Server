@@ -105,7 +105,7 @@ GET /api/graph/sensors?period=day
 
 1.6 Получение текущего режима
 
-GET /api/web/mode
+GET /api/command/mode
 
 Ответ:
 
@@ -198,7 +198,7 @@ POST /api/admin/login
 
 2.5 Установка режима
 
-POST /api/web/mode
+POST /api/command/mode
 
 
 {"mode": "auto"}   // или "manual"
