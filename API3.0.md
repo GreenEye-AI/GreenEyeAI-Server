@@ -238,6 +238,7 @@ POST /api/admin/cleanup/sick_plants
 
 
 {"days": 30}
+
 Ответ:
 
 ```json
