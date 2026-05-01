@@ -20,6 +20,7 @@ GET /api/plants?status=unhealthy
 ```
 
 \\статусы: healthy, unhealthy, warning, critical
+
 \\position берётся из словаря позиций (хранится в формате: 1: {"x": 100, "y": 200, "width": 300, "height": 300}, 2: {"x": 450, "y": 200, "width": 300, "height": 300}, 3: {"x": 800, "y": 200, "width": 300, "height": 300}, ...)
 
 
@@ -141,6 +142,7 @@ POST /api/command/water
 {"state": "on"}   // включить
 
 {"state": "off"}   // выключить
+
 Ответ:
 HTTP 200 / 400 / 500
 
@@ -151,6 +153,7 @@ POST /api/command/light
 
 
 {"state": "on"}   // включить
+
 {"state": "off"}   // выключить
 
 Ответ:
@@ -162,6 +165,7 @@ POST /api/command/fan
 
 
 {"state": "on"}   // включить
+
 {"state": "off"}   // выключить
 
 Ответ:
