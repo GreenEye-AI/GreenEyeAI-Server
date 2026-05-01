@@ -136,41 +136,16 @@ GET /api/schedules
 
 2. ФРОНТ -> СЕРВЕР
 
-2.1 Управление поливом
+2.1-3 Управление поливом/светом/вентилятором
 POST /api/command/water
-
-
-{"state": "on"}   // включить
-
-{"state": "off"}   // выключить
-
-
-Ответ:
-HTTP 200 / 400 / 500
-
-
-
-2.2 Управление светом
 POST /api/command/light
-
-
-{"state": "on"}   // включить
-
-{"state": "off"}   // выключить
-
-
-Ответ:
-HTTP 200 / 400 / 500
-
-2.3 Управление вентилятором
-
 POST /api/command/fan
-
-
-{"state": "on"}   // включить
-
-{"state": "off"}   // выключить
-
+```json
+{
+	"state": "on"
+	"token": "165aeca1-e2ca-4938-94ee-e0b9e11d53d2"
+}   
+```
 
 Ответ:
 HTTP 200 / 400 / 500
@@ -191,7 +166,7 @@ POST /api/admin/login
 ```json
 {
     "status": "ok",
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token": "165aeca1-e2ca-4938-94ee-e0b9e11d53d2",
     "expires_in": 86400
 }
 ```
@@ -254,7 +229,7 @@ POST /api/admin/cleanup/sick_plants
 POST/api/admin/make_photo
 ```json
 {
-	 "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+	 "token": "165aeca1-e2ca-4938-94ee-e0b9e11d53d2",
 }
 ```
 
