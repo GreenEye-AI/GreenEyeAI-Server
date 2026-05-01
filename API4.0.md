@@ -178,12 +178,12 @@ POST /api/admin/login
 
 POST /api/command/mode
 
-
+```json
 {
 	"mode": "auto" // или "manual"
 	"token": "165aeca1-e2ca-4938-94ee-e0b9e11d53d2"
 }   
-
+```
 
 Ответ:
 HTTP 200 / 400 / 500
