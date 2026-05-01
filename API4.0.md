@@ -277,7 +277,7 @@ POST /api/esp/sensors
 
 2. ESP -> Сервер (запрос команд)
 
-GET /api/esp/get_command
+GET /api/esp/command
 
 **без тела запроса
 
@@ -295,12 +295,11 @@ GET /api/esp/get_command
 если нет команд, то "device": "None"
 
 4. ESP -> Сервер (подтверждение команды)
-POST /api/esp/command_ask
+POST /api/esp/command
 
 ```json
 {
-    "command_id": 123,
-    "status": "executed"
+    "command_id": 123
 }
 ```
 
@@ -312,7 +311,7 @@ ESP → Сервер: GET /api/esp/command
 
 Сервер → ESP: {"command_id": 123, "device": "light", "action": "on"}
 
-ESP → Сервер: {"command_id": 123, "status": "executed"}
+ESP → Сервер: {"command_id": 123}
 
 
 
