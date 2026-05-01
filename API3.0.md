@@ -139,6 +139,7 @@ POST /api/command/water
 
 
 {"state": "on"}   // включить
+
 {"state": "off"}   // выключить
 Ответ:
 HTTP 200 / 400 / 500
