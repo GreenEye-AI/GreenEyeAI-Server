@@ -271,7 +271,7 @@ GET /api/status
 ```
 
 
-
+-------
 
 1. ESP -> Сервер (показания датчиков)
 POST /api/esp/sensors
