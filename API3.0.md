@@ -137,9 +137,13 @@ GET /api/schedules
 2. ФРОНТ -> СЕРВЕР
 
 2.1-3 Управление поливом/светом/вентилятором
+
 POST /api/command/water
+
 POST /api/command/light
+
 POST /api/command/fan
+
 ```json
 {
 	"state": "on"
