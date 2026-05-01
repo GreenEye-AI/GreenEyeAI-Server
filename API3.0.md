@@ -143,6 +143,7 @@ POST /api/command/water
 
 {"state": "off"}   // выключить
 
+
 Ответ:
 HTTP 200 / 400 / 500
 
@@ -156,6 +157,7 @@ POST /api/command/light
 
 {"state": "off"}   // выключить
 
+
 Ответ:
 HTTP 200 / 400 / 500
 
@@ -167,6 +169,7 @@ POST /api/command/fan
 {"state": "on"}   // включить
 
 {"state": "off"}   // выключить
+
 
 Ответ:
 HTTP 200 / 400 / 500
