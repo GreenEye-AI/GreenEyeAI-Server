@@ -24,6 +24,7 @@ GET /api/plants?status=unhealthy
 \\position берётся из словаря позиций (хранится в формате: 1: {"x": 100, "y": 200, "width": 300, "height": 300}, 2: {"x": 450, "y": 200, "width": 300, "height": 300}, 3: {"x": 800, "y": 200, "width": 300, "height": 300}, ...)
 
 
+
 \\растений нет:
 ```json
 {
