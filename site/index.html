@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>GreenEye AI — Мониторинг (витрина)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- <style></style> -->
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+<button class="burger" id="burgerBtn"><span></span><span></span><span></span></button>
+<div class="overlay" id="overlay"></div>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div>
+      <div class="sidebar-logo"><i class="fas fa-leaf"></i> GreenEye AI</div>
+      <nav class="nav">
+        <div class="nav-item active" data-section="dashboard"><i class="fas fa-tachometer-alt"></i> Дашборд</div>
+        <div class="nav-item" data-section="shelves"><i class="fas fa-layer-group"></i> Полки</div>
+        <div class="nav-item" data-section="water"><i class="fas fa-tint"></i> Вода</div>
+        <div class="nav-item" data-section="light"><i class="fas fa-lightbulb"></i> Свет</div>
+        <div class="nav-item" data-section="diseases"><i class="fas fa-bug"></i> Заболевания</div>
+      </nav>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="admin-link" onclick="window.location.href='/admin/login'"><i class="fas fa-lock"></i> Вход для админа</div>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div id="dashboard" class="section active-section">
+        <div id="dashboardStats" class="dashboard-grid"></div>
+        <div class="chart-row">
+          <div class="card chart-card"><div class="card-header"><i class="fas fa-chart-line"></i><h3>Уровень воды (история)</h3></div><canvas id="waterLevelChart" height="150"></canvas></div>
+          <div class="card chart-card"><div class="card-header"><i class="fas fa-tint"></i><h3>Состояние полива</h3></div><canvas id="waterActiveChart" height="150"></canvas></div>
+          <div class="card chart-card"><div class="card-header"><i class="fas fa-lightbulb"></i><h3>Состояние освещения</h3></div><canvas id="lightActiveChart" height="150"></canvas></div>
+        </div>
+      </div>
+      <div id="shelves" class="section"><div id="shelvesList"></div></div>
+      <div id="water" class="section"><div id="waterInfo"></div></div>
+      <div id="light" class="section"><div id="lightInfo"></div></div>
+      <div id="diseases" class="section"><div id="diseasesInfo"></div></div>
+    </div>
+    <div style="padding:0 24px 24px 24px"><h3><i class="fas fa-video"></i> Камеры наблюдения</h3><div class="cameras-grid" id="camerasGrid"></div></div>
+  </div>
+</div>
+<script>
+  // Полностью синхронизируется с admin через localStorage, только чтение
+  let state = { waterAuto: true, lightAuto: true, waterActive: false, lightActive: false, waterLevel: 80, fan: false };
+  let plants = [];
+  let waterSchedule = [];
+  let lightSchedule = [];
+  let historyLog = [];
+  let charts = { waterLevel: null, waterActive: null, lightActive: null };
+
+  function loadDataFromStorage() {
+    const storedPlants = localStorage.getItem('greeneye_plants');
+    if(storedPlants) plants = JSON.parse(storedPlants);
+    else plants = [];
+    const storedState = localStorage.getItem('greeneye_state');
+    if(storedState) state = { ...state, ...JSON.parse(storedState) };
+    const storedWaterSchedule = localStorage.getItem('greeneye_waterSchedule');
+    if(storedWaterSchedule) waterSchedule = JSON.parse(storedWaterSchedule);
+    else waterSchedule = [];
+    const storedLightSchedule = localStorage.getItem('greeneye_lightSchedule');
+    if(storedLightSchedule) lightSchedule = JSON.parse(storedLightSchedule);
+    else lightSchedule = [];
+    const storedHistory = localStorage.getItem('greeneye_history');
+    if(storedHistory) historyLog = JSON.parse(storedHistory);
+    else historyLog = [];
+  }
+
+  function renderWaterLevelChart() {
+    const canvas = document.getElementById('waterLevelChart'); if(!canvas) return;
+    if(charts.waterLevel) charts.waterLevel.destroy();
+    const labels = historyLog.map(e => new Date(e.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+    const data = historyLog.map(e => e.waterLevel);
+    charts.waterLevel = new Chart(canvas, { type: 'line', data: { labels, datasets: [{ label: 'Уровень воды (%)', data, borderColor: '#7a9e3f', backgroundColor: 'rgba(122,158,63,0.1)', tension: 0.2, fill: true }] }, options: { responsive: true, maintainAspectRatio: true, scales: { y: { min: 0, max: 100 } } } });
+  }
+  function renderWaterActiveChart() {
+    const canvas = document.getElementById('waterActiveChart'); if(!canvas) return;
+    if(charts.waterActive) charts.waterActive.destroy();
+    const labels = historyLog.map(e => new Date(e.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+    const data = historyLog.map(e => e.waterActive ? 1 : 0);
+    charts.waterActive = new Chart(canvas, { type: 'line', data: { labels, datasets: [{ label: 'Полив (1=вкл, 0=выкл)', data, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.1)', stepped: true, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: true, scales: { y: { min: -0.1, max: 1.1, ticks: { stepSize: 1 } } } } });
+  }
+  function renderLightActiveChart() {
+    const canvas = document.getElementById('lightActiveChart'); if(!canvas) return;
+    if(charts.lightActive) charts.lightActive.destroy();
+    const labels = historyLog.map(e => new Date(e.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+    const data = historyLog.map(e => e.lightActive ? 1 : 0);
+    charts.lightActive = new Chart(canvas, { type: 'line', data: { labels, datasets: [{ label: 'Освещение (1=вкл, 0=выкл)', data, borderColor: '#f1c40f', backgroundColor: 'rgba(241,196,15,0.1)', stepped: true, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: true, scales: { y: { min: -0.1, max: 1.1, ticks: { stepSize: 1 } } } } });
+  }
+  function updateAllCharts() { renderWaterLevelChart(); renderWaterActiveChart(); renderLightActiveChart(); }
+
+  function updateDashboardStats() {
+    const statsDiv = document.getElementById('dashboardStats');
+    if(statsDiv) statsDiv.innerHTML = `
+      <div class="card"><div class="card-header"><i class="fas fa-water"></i><h3>Уровень воды</h3></div><div class="sensor-value">${state.waterLevel}%</div><div class="progress-bar"><div class="progress-fill" style="width:${state.waterLevel}%"></div></div></div>
+      <div class="card"><div class="card-header"><i class="fas fa-tint"></i><h3>Полив</h3></div><div class="sensor-value">${state.waterActive ? '🔵 ВКЛ' : '⚪ ВЫКЛ'}</div><div>Режим: ${state.waterAuto ? 'Авто' : 'Ручной'}</div></div>
+      <div class="card"><div class="card-header"><i class="fas fa-lightbulb"></i><h3>Освещение</h3></div><div class="sensor-value">${state.lightActive ? '💡 ВКЛ' : '🌙 ВЫКЛ'}</div><div>Режим: ${state.lightAuto ? 'Авто' : 'Ручной'}</div><div><i class="fas fa-fan"></i> Вентилятор: ${state.fan ? 'Вкл' : 'Выкл'}</div></div>
+    `;
+  }
+
+  function renderShelves() {
+    const container = document.getElementById('shelvesList');
+    if(container) {
+      if(plants.length === 0) container.innerHTML = '<div class="card">Нет добавленных полок.</div>';
+      else container.innerHTML = plants.map(p => `<div class="shelf-row"><div class="shelf-info"><div class="shelf-title">${escapeHtml(p.name)} • ${escapeHtml(p.shelf)}</div><div class="shelf-status">ID: ${p.id}</div></div><div class="badge ${p.status==='success'?'badge-success':'badge-danger'}">${p.statusText}</div></div>`).join('');
+    }
+  }
+  function renderWaterTab() {
+    const waterInfo = document.getElementById('waterInfo');
+    if(waterInfo) waterInfo.innerHTML = `<div class="card"><div class="card-header"><i class="fas fa-tint"></i><h3>Система полива</h3></div><div>Уровень воды: ${state.waterLevel}%</div><div class="progress-bar"><div class="progress-fill" style="width:${state.waterLevel}%"></div></div><div>Автополив: ${state.waterAuto ? 'Включён' : 'Выключен'}</div><div style="margin-top:16px"><strong><i class="far fa-calendar-alt"></i> Расписание полива</strong></div>${waterSchedule.length ? waterSchedule.map(sch => `<div class="schedule-item-view"><i class="fas fa-clock"></i> ${sch.start} – ${sch.end}</div>`).join('') : '<div class="schedule-item-view">Нет активных интервалов</div>'}</div>`;
+  }
+  function renderLightTab() {
+    const lightInfo = document.getElementById('lightInfo');
+    if(lightInfo) lightInfo.innerHTML = `<div class="card"><div class="card-header"><i class="fas fa-sun"></i><h3>Освещение и вентиляция</h3></div><div><i class="fas fa-lightbulb"></i> Свет: ${state.lightAuto ? 'Автоматический' : 'Ручной'}</div><div><i class="fas fa-fan"></i> Вентилятор: ${state.fan ? 'Включён' : 'Выключен'}</div><div style="margin-top:16px"><strong><i class="far fa-calendar-alt"></i> Расписание освещения</strong></div>${lightSchedule.length ? lightSchedule.map(sch => `<div class="schedule-item-view"><i class="fas fa-clock"></i> ${sch.start} – ${sch.end}</div>`).join('') : '<div class="schedule-item-view">Нет активных интервалов</div>'}</div>`;
+  }
+  function renderDiseases() {
+    const container = document.getElementById('diseasesInfo');
+    if(container) {
+      const problematic = plants.filter(p => p.status === 'danger');
+      if(problematic.length) container.innerHTML = problematic.map(p => `<div class="card" style="border-left:4px solid #e74c3c"><i class="fas fa-exclamation-triangle" style="color:#e74c3c"></i> ${escapeHtml(p.name)}: Требуется обработка</div>`).join('');
+      else container.innerHTML = '<div class="card">✅ Все растения здоровы</div>';
+    }
+  }
+  function renderCameras() {
+    const grid = document.getElementById('camerasGrid');
+    if(grid) {
+      if(plants.length === 0) grid.innerHTML = '<div class="camera-card"><i class="fas fa-camera"></i><div>Нет камер</div></div>';
+      else grid.innerHTML = plants.slice(0, 10).map((p,idx) => `<div class="camera-card"><i class="fas fa-camera"></i><div>Камера ${idx+1}<br>${escapeHtml(p.name)}</div></div>`).join('');
+    }
+  }
+  function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
+
+  function renderAll() {
+    updateDashboardStats();
+    updateAllCharts();
+    renderShelves();
+    renderWaterTab();
+    renderLightTab();
+    renderDiseases();
+    renderCameras();
+  }
+
+  // Навигация
+  const navItems = document.querySelectorAll('.nav-item'), sections = document.querySelectorAll('.section');
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const id = item.dataset.section;
+      sections.forEach(s => s.classList.remove('active-section'));
+      document.getElementById(id).classList.add('active-section');
+      navItems.forEach(n => n.classList.remove('active'));
+      item.classList.add('active');
+      if(window.innerWidth<=768) { document.getElementById('sidebar').classList.remove('open'); document.getElementById('burgerBtn').classList.remove('open'); document.getElementById('overlay').classList.remove('active'); }
+    });
+  });
+  const burger = document.getElementById('burgerBtn'), sidebar = document.getElementById('sidebar'), overlay = document.getElementById('overlay');
+  burger.onclick = () => { sidebar.classList.toggle('open'); burger.classList.toggle('open'); overlay.classList.toggle('active'); };
+  overlay.onclick = () => { sidebar.classList.remove('open'); burger.classList.remove('open'); overlay.classList.remove('active'); };
+
+  setInterval(() => { loadDataFromStorage(); renderAll(); }, 5000);
+  loadDataFromStorage();
+  renderAll();
+</script>
+</body>
+</html>
