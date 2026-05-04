@@ -6,7 +6,8 @@ from server.request import Request
 from server.logging import info, warn, error # noqa: F401
 
 # хуй
-
+# FFFF
+# FFFF
 socket = Socket()
 socket.connect(('localhost', 5000))
 socket.settimeout(None)
