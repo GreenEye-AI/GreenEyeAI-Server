@@ -331,20 +331,6 @@ POST /api/esp/command
 }
 ```
 
-
-❌ 3.5. Сервер -> ESP
-
-GET /api/esp/thresholds?device_id=esp_01
-
-```json
-{
-    "temperature_min": 18.0,
-    "temperature_max": 30.0,
-    "humidity_min": 40.0,
-    "humidity_max": 80.0
-}
-```
-
 -------
 
 4. ОБРАБОТКА ФОТО
