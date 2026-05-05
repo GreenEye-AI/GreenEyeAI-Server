@@ -327,3 +327,14 @@ POST server:8000/api/ml/result
 	"confidence": 0.95
 }
 ```
+
+
+
+
+---------
+
+✅Стрим/видео
+
+GET /api/stream
+
+Возвращение MIME формата (т.е. кадрового)
