@@ -161,19 +161,6 @@ GET /api/last_state
 {"water": 0, "light": 1, "fan": 1}
 ```
 
-❌ 1.10. Получение текущих порогов
-
-GET /api/thresholds
-
-```json
-{
-    "temperature_min": 18.0,
-    "temperature_max": 30.0,
-    "humidity_min": 40.0,
-    "humidity_max": 80.0
-}
-```
-
 2. ФРОНТ -> СЕРВЕР
 
 ✅ 2.1 Авторизация админа
@@ -269,25 +256,6 @@ POST/api/admin/make_photo
 	 "token": "165aeca1-e2ca-4938-94ee-e0b9e11d53d2",
 }
 ```
-
-❌ 2.9 Установить пороги
-
-POST /api/thresholds
-
-```json
-{
-    "token": "165aeca1-e2ca-4938-94ee-e0b9e11d53d2",
-    "temperature_min": 18.0,
-    "temperature_max": 30.0,
-    "humidity_min": 40.0,
-    "humidity_max": 80.0
-}
-```
-
-Ответ:
-HTTP 200 / 400 / 500
-
-
 
 -------
 
