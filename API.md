@@ -224,7 +224,7 @@ POST /api/schedule
 	"token": "165aeca1-e2ca-4938-94ee-e0b9e11d53d2",
 	"light": {"start": "08:00", "end": "20:00"},
 	"fan": {"interval_hours": 2, "duration_minutes": 5},
-	"water": {"interval_hours": 6, "duration_minutes": 2}
+	"water": {"interval_hours": 3, "duration_minutes": 10}
 }
 ```
 
