@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GreenEye AI — Мониторинг (витрина)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f0f2f5; color: #333; }
+    header { background: #2c3e50; color: #fff; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
+    nav a { color: #fff; margin-left: 15px; text-decoration: none; opacity: 0.8; }
+    nav a:hover { opacity: 1; }
+    .container { max-width: 1000px; margin: 20px auto; padding: 0 15px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .card { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .card h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+    .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .status-item { padding: 10px; background: #f8f9fa; border-radius: 6px; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: bold; color: #fff; }
+    .on { background: #27ae60; } .off { background: #95a5a6; }
+    canvas { width: 100%; height: 200px; background: #fafafa; border: 1px solid #ddd; }
+    #live-stream { width: 100%; height: 200px; background: #000; object-fit: cover; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>GreenEye AI</h1>
+    <nav>
+      <a href="#dashboard">Дашборд</a>
+      <a href="#graphs">Графики</a>
+      <a href="#stream">Камеры</a>
+      <a href="/admin">Вход для админа</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <!-- ✅ 1.8 Статус сервера + ✅ 1.6 Режим + ✅ 1.9 Реле -->
+    <section id="dashboard" class="card">
+      <h3>Состояние системы</h3>
+      <div class="status-grid">
+        <div class="status-item">Сервер: <span id="srv-status">...</span></div>
+        <div class="status-item">БД: <span id="db-status">...</span></div>
+        <div class="status-item">Режим: <span id="sys-mode">...</span></div>
+        <div class="status-item">Аптайм: <span id="srv-uptime">...</span></div>
+      </div>
+      <h4 style="margin-top:15px;">Реле (последнее состояние)</h4>
+      <div class="status-grid">
+        <div class="status-item">💧 Вода: <span id="relay-water" class="badge off">OFF</span></div>
+        <div class="status-item">💡 Свет: <span id="relay-light" class="badge off">OFF</span></div>
+        <div class="status-item">🌀 Вентилятор: <span id="relay-fan" class="badge off">OFF</span></div>
+      </div>
+    </section>
+
+    <!-- ✅ 1.5 Графики + ✅ 1.7 Расписание -->
+    <section id="graphs" class="card">
+      <h3>Уровень воды (история)</h3>
+      <canvas id="waterChart"></canvas>
+      <div style="margin-top:10px; font-size:0.9rem; color:#666;">
+        Расписание: <span id="schedule-info">Загрузка...</span>
+      </div>
+    </section>
+
+    <!-- ✅ 1.10 Стрим -->
+    <section id="stream" class="card">
+      <h3>Камеры наблюдения</h3>
+      <img id="live-stream" src="/api/stream" alt="Видеопоток недоступен" onerror="this.alt='Стрим не активен'">
+    </div>
+    </section>
+  </div>
+
+  <script>
+    const els = {
+      srvStatus: document.getElementById('srv-status'),
+      dbStatus: document.getElementById('db-status'),
+      sysMode: document.getElementById('sys-mode'),
+      srvUptime: document.getElementById('srv-uptime'),
+      relayWater: document.getElementById('relay-water'),
+      relayLight: document.getElementById('relay-light'),
+      relayFan: document.getElementById('relay-fan'),
+      scheduleInfo: document.getElementById('schedule-info'),
+      waterChart: document.getElementById('waterChart')
+    };
+
+    function updateBadge(el, val) {
+      el.textContent = val ? 'ON' : 'OFF';
+      el.className = `badge ${val ? 'on' : 'off'}`;
+    }
+
+    function formatUptime(sec) {
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      return `${h}ч ${m}м`;
+    }
+
+    // ✅ 1.8 Статус сервера
+    async function fetchStatus() {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      els.srvStatus.textContent = data.status.toUpperCase();
+      els.dbStatus.textContent = data.db_status.toUpperCase();
+      els.srvUptime.textContent = formatUptime(data.uptime);
+    }
+
+    // ✅ 1.6 Режим
+    async function fetchMode() {
+      const res = await fetch('/api/command/mode');
+      const data = await res.json();
+      els.sysMode.textContent = data.mode.toUpperCase();
+    }
+
+    // ✅ 1.9 Состояние реле
+    async function fetchRelays() {
+      const res = await fetch('/api/last_state');
+      const data = await res.json();
+      updateBadge(els.relayWater, data.water);
+      updateBadge(els.relayLight, data.light);
+      updateBadge(els.relayFan, data.fan);
+    }
+
+    // ✅ 1.7 Расписание
+    async function fetchSchedule() {
+      const res = await fetch('/api/schedule');
+      const data = await res.json();
+      els.scheduleInfo.textContent = `Свет: ${data.light.start}-${data.light.end} | Вода: ${data.water.interval_hours}ч/${data.water.duration_minutes}м | Вент: ${data.fan.interval_hours}ч/${data.fan.duration_minutes}м`;
+    }
+
+    // ✅ 1.5 График (простая отрисовка на Canvas)
+    async function fetchGraph() {
+      const res = await fetch('/api/graph/table', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table: 'water', seconds: 86400 })
+        });
+      const data = await res.json(); // [[ts, val], ...]
+      const ctx = els.waterChart.getContext('2d');
+      const w = els.waterChart.width = els.waterChart.clientWidth;
+      const h = els.waterChart.height = els.waterChart.clientHeight;
+
+      ctx.clearRect(0, 0, w, h);
+      if (!data || data.length < 2) return;
+
+      const maxVal = Math.max(...data.map(d => d[1])) * 1.1 || 1;
+      const minVal = Math.min(...data.map(d => d[1])) * 0.9 || 0;
+
+      ctx.beginPath();
+      ctx.strokeStyle = '#3498db';
+      ctx.lineWidth = 2;
+      data.forEach((point, i) => {
+        const x = (i / (data.length - 1)) * w;
+        const y = h - ((point[1] - minVal) / (maxVal - minVal)) * h;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    async function initDashboard() {
+      try {
+        await Promise.all([fetchStatus(), fetchMode(), fetchRelays(), fetchSchedule(), fetchGraph()]);
+      } catch (e) { console.warn('Ошибка загрузки дашборда:', e); }
+    }
+
+    initDashboard();
+    setInterval(initDashboard, 5000); // Автообновление каждые 5 сек
+  </script>
+</body>
+</html>
