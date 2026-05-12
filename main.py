@@ -2,21 +2,33 @@ import uuid
 from time import sleep
 from datetime import datetime
 from threading import Lock
+from socket import socket as Socket
+
+try:
+	import io  # noqa: F401
+	import cv2 # type: ignore
+	from picamera2 import Picamera2 # type: ignore
+	is_rasberi_server = True
+except:  # noqa: E722
+	is_rasberi_server = False
 
 from server import Server, Request, Response
 from server import Data, DataBase
-from server.cluster import Cluster
+from server.cluster import Cluster, File
 from server.logging import info, warn, error  # noqa: F401
 from server.threads import nonblocking
 
 from esp_paths import esp_sens_path, esp_gcmd_path, esp_dcmd_path
 
 from web_paths import web_gmod_path, web_smod_path
-from web_paths import web_gidx_path, web_gadm_path, web_galn_path, web_paln_path
-from web_paths import web_acwr_path, web_aclt_path, web_acfn_path
+from web_paths import web_gadm_path, web_paln_path
+# работа с БД
+from web_paths import web_acwr_path, web_aclt_path, web_acfn_path, web_sphl_path
 from web_paths import web_gdb1_path, web_gdb2_path
 # установка и получение расписания
 from web_paths import web_sshd_path, web_gshd_path
+# получение стрима
+from web_paths import web_gstr_path
 from web_paths import get_last_state, append_command
 
 
@@ -26,6 +38,7 @@ data.commands_lock = Lock()
 data.mode = 'manual' # или auto
 data.mode_lock = Lock()
 data.token = str(uuid.uuid4())
+data.stream_lock = Lock()
 info('Токен авторизации:', data.token)
 
 
@@ -55,6 +68,12 @@ database.execute('''
 		state BOOLEAN NOT NULL
 	)
 ''')
+database.execute('''
+	CREATE TABLE IF NOT EXISTS ph (
+		timestamp REAL NOT NULL,
+		level REAL NOT NULL
+	)
+''')
 
 
 cluster = Cluster('site')
@@ -62,6 +81,27 @@ if cluster is None:
 	error('Кластер повреждён!')
 	exit()
 server = Server(data, database, cluster)
+
+
+@nonblocking
+def update_stream():
+	if not is_rasberi_server:
+		return
+	
+	picam2 = Picamera2()
+	config = picam2.create_video_configuration(
+			main={"size": (640, 480)},
+			controls={"FrameRate": 24}
+	)
+	picam2.configure(config)
+	picam2.start()
+	sleep(1)  # прогрев камеры
+
+	while True:
+		frame = picam2.capture_array()
+		ret, buffer = cv2.imencode('.jpg', frame)
+		jpeg_bytes = buffer.tobytes()
+		data.stream = jpeg_bytes
 
 
 @nonblocking
@@ -152,21 +192,26 @@ def main():
 					append_command(data, 'fan', 'off')
 					last_command_time['fan'] = timestamp
 
-		# ==========================================
-		# Задержка цикла (ОБЯЗАТЕЛЬНО)
-		# ==========================================
-		# Не дает скрипту утилизировать процессор на 100% и бережет базу данных
 		sleep(5)
 
 
 @server.path('GET', '/me')
-def me_path(server: Server, req: Request) -> Response:
+def me_path(server: Server, client: Socket, req: Request) -> Response | None:
 	return Response(200).text(req.to_body().replace('\r\n', '<br>'))
 
 
 @server.path('GET', '/ping')
-def ping_path(server: Server, req: Request) -> Response:
-	return Response(200)
+def ping_path(server: Server, client: Socket, req: Request) -> Response | None:
+	return Response(200).header('Connection', 'keep-alive')
+
+
+@server.path('GET',  '/')
+def web_gidx_path(server: Server, client: Socket, req: Request) -> Response | None:
+	if '/index.html' in server.cluster:
+		file = server.cluster['/index.html']
+		if type(file) is File:
+			return Response(200).html(file.read())
+	return Response(404)
 
 
 server.path('POST', '/api/esp/sensors'   )(esp_sens_path)
@@ -180,15 +225,18 @@ server.path('POST', '/api/command/water' )(web_acwr_path)
 server.path('POST', '/api/command/light' )(web_aclt_path)
 server.path('POST', '/api/command/fan'   )(web_acfn_path)
 
-server.path('GET',  '/'                  )(web_gidx_path)
+server.path('POST', '/api/ph'            )(web_sphl_path)
+
 server.path('GET',  '/admin'             )(web_gadm_path)
 server.path('GET',  '/admin.html'        )(web_gadm_path)
-server.path('GET',  '/admin/login'       )(web_galn_path)
 server.path('POST', '/api/admin/login'   )(web_paln_path)
 server.path('GET',  '/api/graph/table'   )(web_gdb1_path)
 server.path('GET',  '/api/last_state'    )(web_gdb2_path)
 server.path('POST', '/api/schedule'      )(web_sshd_path)
 server.path('GET',  '/api/schedule'      )(web_gshd_path)
 
+server.path('GET',  '/api/stream',        )(web_gstr_path)
+
 main()
+update_stream()
 server.start()
