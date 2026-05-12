@@ -1,5 +1,7 @@
+from time import sleep
 from random import randint
 from datetime import datetime
+from socket import socket as Socket
 
 from server import Server, Request, Response
 from server.cluster import File
@@ -8,15 +10,14 @@ from server.database import DataBase
 from server.logging import info, warn, error  # noqa: F401
 
 
-def web_gmod_path(server: Server, req: Request) -> Response:
-	with server.data.mode_lock:
-		mode: str = server.data.mode
+def web_gmod_path(server: Server, client: Socket, req: Request) -> Response | None:
+	mode: str = server.data.mode
 	return Response(200).json({
 		'mode': mode
 	})
 
 
-def web_smod_path(server: Server, req: Request) -> Response:
+def web_smod_path(server: Server, client: Socket, req: Request) -> Response | None:
 	data = req.get_json()
 	if data is None:
 		return Response(400)
@@ -26,8 +27,7 @@ def web_smod_path(server: Server, req: Request) -> Response:
 		return Response(400)
 	if data['mode'] not in ('auto', 'manual',):
 		return Response(400)
-	with server.data.mode_lock:
-		server.data.mode = data['mode']
+	server.data.mode = data['mode']
 	return Response(200)
 
 
@@ -39,9 +39,13 @@ def append_command(data: Data, device: str, state: str) -> None:
 		commands.append((randint(0, 65535), device, state))
 
 
-def web_aclt_path(server: Server, req: Request) -> Response:
-	with server.data.mode_lock:
-		mode: str = server.data.mode
+def rele_processing(
+	name: str,
+	server: Server,
+	client: Socket,
+	req: Request
+	) -> Response | None:
+	mode: str = server.data.mode
 	if mode != 'manual':
 		return Response(400)
 	data = req.get_json()
@@ -53,58 +57,24 @@ def web_aclt_path(server: Server, req: Request) -> Response:
 		return Response(400)
 	if data['state'] not in ('on', 'off',):
 		return Response(400)
-	append_command(server.data, 'light', data['state'])
-	info("Команада добавлена")
+	append_command(server.data, name, data['state'])
+	# info("Команада добавлена")
 	return Response(200)
+
+
+def web_aclt_path(server: Server, client: Socket, req: Request) -> Response | None:
+	return rele_processing('light', server, client, req)
 	
 
-def web_acwr_path(server: Server, req: Request) -> Response:
-	with server.data.mode_lock:
-		mode: str = server.data.mode
-	if mode != 'manual':
-		return Response(400)
-	data = req.get_json()
-	if data is None:
-		return Response(400)
-	if ('state' not in data) or ('token' not in data):
-		return Response(400)
-	if data['token'] != server.data.token:
-		return Response(400)
-	if data['state'] not in ('on', 'off',):
-		return Response(400)
-	append_command(server.data, 'water', data['state'])
-	info("Команада добавлена")
-	return Response(200)
+def web_acwr_path(server: Server, client: Socket, req: Request) -> Response | None:
+	return rele_processing('water', server, client, req)
 
 
-def web_acfn_path(server: Server, req: Request) -> Response:
-	with server.data.mode_lock:
-		mode: str = server.data.mode
-	if mode != 'manual':
-		return Response(400)
-	data = req.get_json()
-	if data is None:
-		return Response(400)
-	if ('state' not in data) or ('token' not in data):
-		return Response(400)
-	if data['token'] != server.data.token:
-		return Response(400)
-	if data['state'] not in ('on', 'off',):
-		return Response(400)
-	append_command(server.data, 'fan', data['state'])
-	info("Команада добавлена")
-	return Response(200)
+def web_acfn_path(server: Server, client: Socket, req: Request) -> Response | None:
+	return rele_processing('fan', server, client, req)
 
 
-def web_gidx_path(server: Server, req: Request) -> Response:
-	if '/index.html' in server.cluster:
-		file = server.cluster['/index.html']
-		if type(file) is File:
-			return Response(200).html(file.read())
-	return Response(404)
-
-
-def web_gadm_path(server: Server, req: Request) -> Response:
+def web_gadm_path(server: Server, client: Socket, req: Request) -> Response | None:
 	res = Response(302).header('Location', '/admin/login')
 
 	if 'Cookie' not in req.headers:
@@ -113,25 +83,14 @@ def web_gadm_path(server: Server, req: Request) -> Response:
 	if 'token='+server.data.token not in req.headers['Cookie']:
 		return res
 
-	if '/admin.html' not in server.cluster:
-		return Response(404)
-	
-	obj = server.cluster['/admin.html']
-	if type(obj) is File:
-		return Response(200).bytes(obj.read())
-	return Response(500)
-
-
-def web_galn_path(server: Server, req: Request) -> Response:
-	path = '/admin/login.html'
-	if path in server.cluster:
+	if (path := '/admin.html') in server.cluster:
 		file = server.cluster[path]
 		if type(file) is File:
-			return Response(200).html(file.read())
+			return Response(200).bytes(file.read())
 	return Response(404)
 
 
-def web_paln_path(server: Server, req: Request) -> Response:
+def web_paln_path(server: Server, client: Socket, req: Request) -> Response | None:
 	data = req.get_json()
 	if data is None:
 		return Response(400)
@@ -145,7 +104,7 @@ def web_paln_path(server: Server, req: Request) -> Response:
 	})
 
 
-def web_sshd_path(server: Server, req: Request) -> Response:
+def web_sshd_path(server: Server, client: Socket, req: Request) -> Response | None:
 	data: dict | None = req.get_json()
 	if data is None:
 		return Response(400)
@@ -194,7 +153,7 @@ def web_sshd_path(server: Server, req: Request) -> Response:
 	return Response(200)
 	
 
-def web_gshd_path(server: Server, req: Request) -> Response:
+def web_gshd_path(server: Server, client: Socket, req: Request) -> Response | None:
 	if server.data.schedule is None:
 		return Response(500)
 	return Response(200).json({
@@ -213,13 +172,13 @@ def web_gshd_path(server: Server, req: Request) -> Response:
 	})
 
 
-def web_gdb1_path(server: Server, req: Request) -> Response:
+def web_gdb1_path(server: Server, client: Socket, req: Request) -> Response | None:
 	data = req.get_json()
 	if data is None:
 		return Response(400)
 	if ('table' not in data) or ('seconds' not in data):
 		return Response(400)
-	if data['table'] not in ('water', 'light', 'fan', 'sensors'):
+	if data['table'] not in ('water', 'light', 'fan', 'sensors', 'ph'):
 		return Response(400)
 	if type(data['seconds']) is not int:
 		return Response(400)
@@ -253,7 +212,50 @@ def get_last_state(database: DataBase) -> dict[str, int]:
 	return data
 
 
-def web_gdb2_path(server: Server, req: Request) -> Response:
+def web_gdb2_path(server: Server, client: Socket, req: Request) -> Response | None:
 	data = get_last_state(server.database)
 	return Response(200).json(data)
 
+
+def web_gstr_path(server: Server, client: Socket, req: Request) -> Response | None:
+	if server.data.stream is None:
+		return Response(500)
+	res = Response(200)
+	res.header('Content-type', 'multipart/x-mixed-replace; boundary=frame')
+	info(res.to_text())
+	client.send(res.to_bytes())
+
+	while True:
+		jpeg_bytes: bytes = server.data.stream
+
+		data  = b'--frame\r\n'
+		data += b'Content-Type: image/jpeg\r\n'
+		data += b'Content-Length: ' + str(len(jpeg_bytes)).encode('ascii')
+		data += b'\r\n\r\n'
+		data += jpeg_bytes
+		data += b'\r\n'
+		try:
+			client.send(data)
+		except:  # noqa: E722
+			break
+		sleep(1/15)
+
+
+def web_sphl_path(server: Server, client: Socket, req: Request) -> Response | None:
+	data = req.get_json()
+	if data is None:
+		return Response(400)
+	if ('token' not in data) or ('level' not in data):
+		return Response(400)
+	if data['token'] != server.data.token:
+		return Response(400)
+	if type(data['level']) is not float:
+		return Response(400)
+	if (data['level'] < 0) or (data['level'] > 14):
+		return Response(400)
+	
+	server.database.execute(
+		'INSERT INTO ph (timestamp, level) VALUES (?, ?)',
+		(datetime.now().timestamp(), data['level'])
+	)
+	return Response(200)
