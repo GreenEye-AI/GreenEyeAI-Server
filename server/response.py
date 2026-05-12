@@ -1,4 +1,5 @@
 from __future__ import annotations
+from socket import socket as Socket
 import json
 
 from .status import STATUS
@@ -17,7 +18,7 @@ class Response:
 		self.status = status
 
 		self.headers = {
-			'Connection': 'close',
+			'Connection': 'close'
 		}
 
 		if headers is not None:
@@ -67,3 +68,6 @@ class Response:
 		if len(self.data) > 0:
 			self.headers['Content-Length'] = str(len(self.data))
 		return self.to_body().encode('ascii') + self.data
+	
+	def to_socket(self, sock: Socket) -> None:
+		sock.send(self.to_bytes())
