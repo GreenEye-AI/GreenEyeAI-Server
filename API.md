@@ -70,6 +70,7 @@ GET /api/readings
 			"plant_id": 1,
 			"temperature": 23.5,
 			"humidity": 65,
+			"ph": 6.5,
 			"diagnosis": "healthy",
 			"confidence": 0.95,
 			"image_url": "/data/crop_photos/plant_1_20260422_100000.jpg",
@@ -99,7 +100,7 @@ GET /api/graph/table
 
 ```json
 {
-	"table": "sensors", // water, fan или light
+	"table": "sensors", // water, fan, light или pH
 	"seconds": 600 // за посл. 600 сек = 10 минут
 }
 ```
@@ -166,6 +167,7 @@ GET /api/last_state
 GET /api/stream
 
 Возвращение MIME формата (т.е. кадрового)
+
 
 2. ФРОНТ -> СЕРВЕР
 
@@ -263,8 +265,21 @@ POST/api/admin/make_photo
 }
 ```
 
--------
+✅ 2.9. Установка уровня pH
 
+POST /api/ph
+
+```json
+{
+    "token": "165aeca1-e2ca-4938-94ee-e0b9e11d53d2",
+    "level": 6.5
+}
+```
+
+Ответ:
+HTTP 200 / 400 / 500
+
+-------
 3. ВЗАИМОДЕЙСТВИЕ С ESP  
 
 ✅ 3.1. ESP -> Сервер (показания датчиков)
