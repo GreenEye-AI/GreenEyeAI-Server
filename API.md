@@ -96,7 +96,7 @@ GET /api/guest/status
 
 ✅ 1.5 Получение данных для графиков
 
-GET /api/graph/table
+POST /api/graph/table
 
 ```json
 {
