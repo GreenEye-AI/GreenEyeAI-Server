@@ -24,14 +24,15 @@ class Server:
 	port: int
 	socket: Socket
 	paths: dict[str, dict[str, CALLBACK_TYPE]]
+	debug: bool
 	
-
 	def __init__(self,
 		data: Data,
 		database: DataBase,
 		cluster: Cluster,
 		host: str = '0.0.0.0',
 		port: int = 5000,
+		debug: bool = False,
 	) -> None:
 		self.data = data
 		self.database = database
@@ -39,6 +40,7 @@ class Server:
 		self.paths = dict()
 		self.host = host
 		self.port = port
+		self.debug = debug
 
 
 	# используется для добавления обработчика на путь
@@ -66,7 +68,8 @@ class Server:
 
 	@nonblocking
 	def processing(self, client: Socket, ip: str, port: int) -> None:
-		info(f'Подключение: {ip}:{port}')
+		if self.debug:
+			info(f'Подключение: {ip}:{port}')
 		client.settimeout(5.0)
 
 		while True:
@@ -80,7 +83,8 @@ class Server:
 				raise
 
 			if req is None:
-				warn(f'Неверный HTTP: {ip}:{port}')
+				if self.debug:
+					warn(f'Неверный HTTP: {ip}:{port}')
 				Response(400).to_socket(client)
 				break
 				
@@ -112,7 +116,8 @@ class Server:
 				Response(404).to_socket(client)
 			break
 
-		info(f'Отключение: {ip}:{port}')
+		if self.debug:
+			info(f'Отключение: {ip}:{port}')
 		client.close()
 
 
@@ -132,7 +137,7 @@ class Server:
 				sleep(0.5)
 			error('Аварийная остановка сервера!')
 		except KeyboardInterrupt:
-			info("Принудительная остановка сервера")
+			info('Принудительная остановка сервера')
 			if self.database is not None:
 				self.database.close()
 		except:

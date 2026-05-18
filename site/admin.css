@@ -1,0 +1,239 @@
+:root {
+	--primary: #48bb78;
+	--primary-hover: #38a169;
+	--danger: #f56565;
+	--danger-hover: #e53e3e;
+	--bg-body: #f7fafc;
+	--bg-card: #ffffff;
+	--text-main: #2d3748;
+	--text-secondary: #718096;
+	--sidebar-bg: #1a1f2e;
+	--sidebar-text: #a0aec0;
+	--border-color: #e2e8f0;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+	background: var(--bg-body);
+	color: var(--text-main);
+	display: flex;
+	min-height: 100vh;
+}
+
+/* --- Sidebar --- */
+.sidebar {
+	width: 260px;
+	height: 100%;
+	background: var(--sidebar-bg);
+	color: white;
+	position: fixed;
+	display: flex;
+	flex-direction: column;
+	z-index: 100;
+}
+
+.sidebar-header {
+	padding: 25px;
+	border-bottom: 1px solid rgba(255,255,255,0.1);
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	font-size: 20px;
+	font-weight: 700;
+	color: var(--primary);
+}
+
+.nav-menu { padding: 20px 0; flex: 1; }
+
+.nav-item {
+	padding: 14px 25px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: var(--sidebar-text);
+	text-decoration: none;
+	transition: 0.3s;
+	cursor: pointer;
+}
+
+.nav-item:hover, .nav-item.active {
+	background: rgba(255,255,255,0.05);
+	color: white;
+}
+
+.nav-item.active { border-right: 3px solid var(--primary); }
+
+.logout-btn {
+	padding: 15px 25px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: var(--danger);
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 15px;
+	width: 100%;
+	text-align: left;
+	transition: 0.3s;
+}
+
+.logout-btn:hover { background: rgba(245, 101, 101, 0.1); }
+
+/* --- Main Content --- */
+.main-content {
+	margin-left: 260px;
+	flex: 1;
+	padding: 30px;
+}
+
+h1.page-title {
+	font-size: 28px;
+	font-weight: 700;
+	margin-bottom: 30px;
+}
+
+/* --- Grid & Cards --- */
+.grid-4 {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: 20px;
+	margin-bottom: 30px;
+}
+
+.card {
+	border: 1px solid #e2e8f0;
+	background: var(--bg-card);
+	border-radius: 16px;
+	padding: 25px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.card-header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 15px;
+	font-weight: 600;
+	font-size: 18px;
+}
+
+.big-stat { font-size: 42px; font-weight: 700; }
+.stat-label { color: var(--text-secondary); font-size: 14px; margin-top: 5px; }
+
+.status-badge {
+	display: inline-block;
+	padding: 5px 12px;
+	border-radius: 20px;
+	font-weight: 600;
+	font-size: 14px;
+}
+.status-on { background: #c6f6d5; color: #22543d; }
+.status-off { background: #fed7d7; color: #742a2a; }
+.status-auto { background: #bee3f8; color: #2a4365; }
+.status-manual { background: #fefcbf; color: #744210; }
+
+/* --- Controls Section --- */
+.control-panel {
+	border: 1px solid #e2e8f0;
+	background: var(--bg-card);
+	border-radius: 16px;
+	padding: 25px;
+	margin-bottom: 30px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.device-row {
+	border-bottom: 1px solid var(--border-color);
+	padding: 20px 0;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: center;
+	gap: 15px;
+}
+.device-row:last-child { border-bottom: none; }
+
+.device-info { min-width: 200px; }
+.device-name { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+
+.btn-group { display: flex; gap: 10px; }
+
+.btn {
+	padding: 10px 20px;
+	border-radius: 8px;
+	border: none;
+	cursor: pointer;
+	font-weight: 600;
+	transition: 0.2s;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-green { background: var(--primary); color: white; }
+.btn-green:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
+
+.btn-red { background: var(--danger); color: white; }
+.btn-red:hover:not(:disabled) { background: var(--danger-hover); transform: translateY(-1px); }
+
+.toggle-switch {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	cursor: pointer;
+}
+.switch-track {
+	width: 44px; height: 24px; background: #cbd5e0;
+	border-radius: 12px; position: relative; transition: 0.3s;
+}
+.switch-thumb {
+	width: 20px; height: 20px; background: white;
+	border-radius: 50%; position: absolute; top: 2px; left: 2px;
+	transition: 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.switch-track.active { background: var(--primary); }
+.switch-track.active .switch-thumb { transform: translateX(20px); }
+
+/* --- Schedule --- */
+.schedule-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+	gap: 20px;
+	margin-top: 15px;
+}
+.schedule-card {
+	background: #f8fafc;
+	padding: 15px;
+	border-radius: 10px;
+	border: 1px solid var(--border-color);
+}
+.schedule-input {
+	padding: 8px;
+	border: 1px solid #cbd5e0;
+	border-radius: 6px;
+	margin-right: 5px;
+}
+
+/* --- Diseases --- */
+.plants-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: 15px;
+	margin-top: 15px;
+}
+.plant-card {
+	background: white;
+	padding: 15px;
+	border-radius: 10px;
+	border: 1px solid var(--border-color);
+	text-align: center;
+}
+.plant-card.unhealthy { border-color: var(--danger); background: #fff5f5; }
+.plant-card.healthy { border-color: var(--primary); background: #f0fff4; }
+
+/* --- Utility --- */
+.hidden { display: none !important; }
