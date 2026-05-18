@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GreenEye AI — Мониторинг</title>
+    <link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <svg viewBox="0 0 24 24"><path d="M17,8C8,10 5.9,16.17 3.82,21.34L5.71,22L6.66,19.7C7.14,19.87 7.64,20 8,20C19,20 22,3 22,3C21,5 14,5.25 9,6.25C4,7.25 2,11.5 2,13.5C2,15.5 3.75,17.25 3.75,17.25C7,8 17,8 17,8Z"/></svg>
+            GreenEye AI
+        </div>
+        <nav class="nav">
+            <a href="/#dashboard">Дашборд</a>
+            <a href="/#graphs">Графики</a>
+            <a href="/#stream">Камера</a>
+            <a href="/#plants">Растения</a>
+            <a href="/admin" class="admin-link">Вход для админа</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <section class="section" id="dashboard">
+            <h2 class="section-title">📊 Реле (последнее состояние)</h2>
+            <div class="relay-grid">
+                <div class="relay-item">
+                    <span class="relay-label">🚿 Полив</span>
+                    <span id="relay-water" class="relay-status wtf">???</span>
+                </div>
+                <div class="relay-item">
+                    <span class="relay-label">💡 Освещение</span>
+                    <span id="relay-light" class="relay-status wtf">???</span>
+                </div>
+                <div class="relay-item">
+                    <span class="relay-label">🌀 Обдув</span>
+                    <span id="relay-fan" class="relay-status wtf">???</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title">📅 Расписание</h2>
+            <div id="schedule-view" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                Загрузка...
+            </div>
+        </section>
+
+        <section class="section" id="graphs">
+            <h2 class="section-title">📈 История состояний</h2>
+            <div class="charts-grid">
+                <div class="chart-item">
+                    <div class="chart-title">🌀 Состояние обдува:</div>
+                    <div id="history-fan">Загрузка данных...</div>
+                </div>
+                <div class="chart-item">
+                    <div class="chart-title">🚿 Состояние полива:</div>
+                    <div id="history-water">Загрузка данных...</div>
+                </div>
+                <div class="chart-item">
+                    <div class="chart-title">💡 Состояние освещения:</div>
+                    <div id="history-light">Загрузка данных...</div>
+                </div>
+                <div class="chart-item">
+                    <div class="chart-title">⚗️Уровеь pH:</div>
+                    <div id="history-ph">Загрузка данных...</div>
+                </div>
+                <div class="chart-item">
+                    <div class="chart-title">🌡️ Температура</div>
+                    <div id="history-temperature">Загрузка данных...</div>
+                </div>
+                <div class="chart-item">
+                    <div class="chart-title">💧 Влажность</div>
+                    <div id="history-humidity">Загрузка данных...</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="stream">
+            <h2 class="section-title">📹 Камера наблюдения</h2>
+            <div class="camera-container">
+                <img id="camera-feed" src="/api/stream" alt="Поток камеры" onerror="this.style.display='none'">
+            </div>
+        </section>
+
+        <section class="section" id="plants">
+            <h2 class="section-title">🌱 Мониторинг растений</h2>
+            <div class="plant-grid" id="plant-grid">
+                <!-- Квадраты будут сгенерированы JS -->
+                Загрузка состояний...
+            </div>
+        </section>
+    </div>
+
+    <script src="/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html>
