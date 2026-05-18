@@ -7,8 +7,10 @@ from server.response import Response
 from server.logging import info, warn, error # noqa: F401
 
 
+addr = ('155.212.146.44', 6700)
+
 socket = Socket()
-socket.connect(('localhost', 5000))
+socket.connect(addr)
 
 req = Request('POST', '/api/admin/login')
 req.json({
@@ -28,26 +30,26 @@ if data is None:
 token = data['token']
 socket.close()
 
+# socket = Socket()
+# socket.connect(addr)
+
+# req = Request('POST', '/api/ph')
+# req.json({
+# 	'token': token,
+# 	'level': 0.0
+# })
+# req.to_socket(socket)
+# data = socket.recv(1024)
+# print(data)
+# socket.close()
+
 socket = Socket()
-socket.connect(('localhost', 5000))
+socket.connect(addr)
 
-req = Request('POST', '/api/ph')
+req = Request('POST', '/api/graph/table')
 req.json({
-	'token': token,
-	'level': 0.0
-})
-req.to_socket(socket)
-data = socket.recv(1024)
-print(data)
-socket.close()
-
-socket = Socket()
-socket.connect(('localhost', 5000))
-
-req = Request('GET', '/api/graph/table')
-req.json({
-	'table': 'ph',
-	'seconds': 60
+	'table': 'sensors',
+	'seconds': 30*60
 })
 req.to_socket(socket)
 data = socket.recv(1024**2)

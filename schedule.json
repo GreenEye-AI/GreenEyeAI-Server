@@ -1,0 +1,1 @@
+{"light": {"start": "04:00", "end": "05:00"}, "fan": {"interval_hours": 5, "duration_minutes": 1}, "water": {"interval_hours": 10, "duration_minutes": 1}}

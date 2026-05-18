@@ -1,3 +1,4 @@
+import json
 from time import sleep
 from random import randint
 from datetime import datetime
@@ -101,7 +102,7 @@ def web_paln_path(server: Server, client: Socket, req: Request) -> Response | No
 	return Response(200).json({
 		'token': server.data.token,
 		'expires_in': 86400
-	})
+	}).header('Set-Cookie', f'token={server.data.token}; Path=/; Max-Age=86400')
 
 
 def web_sshd_path(server: Server, client: Socket, req: Request) -> Response | None:
@@ -132,8 +133,8 @@ def web_sshd_path(server: Server, client: Socket, req: Request) -> Response | No
 		(type(data['fan']['duration_minutes']) is not int)):
 		return Response(400)
 	try:
-		data['light']['start'] = datetime.strptime(data['light']['start'], "%H:%M").time()
-		data['light']['end'] = datetime.strptime(data['light']['end'], "%H:%M").time()
+		datetime.strptime(data['light']['start'], "%H:%M").time()
+		datetime.strptime(data['light']['end'], "%H:%M").time()
 	except:  # noqa: E722
 		return Response(400)
 	server.data.schedule = {
@@ -150,26 +151,16 @@ def web_sshd_path(server: Server, client: Socket, req: Request) -> Response | No
 			'duration_minutes': data['water']['duration_minutes'],
 		},
 	}
+	info('Расписание сохранено')
+	with open('schedule.json', 'w') as file:
+		json.dump(server.data.schedule, file)
 	return Response(200)
 	
 
 def web_gshd_path(server: Server, client: Socket, req: Request) -> Response | None:
 	if server.data.schedule is None:
-		return Response(500)
-	return Response(200).json({
-		'light': {
-			'start': server.data.schedule['light']['start'].strftime("%H:%M"),
-			'end': server.data.schedule['light']['end'].strftime("%H:%M"),
-		},
-		'fan': {
-			'interval_hours': server.data.schedule['fan']['interval_hours'],
-			'duration_minutes': server.data.schedule['fan']['duration_minutes'],
-		},
-		'water': {
-			'interval_hours': server.data.schedule['water']['interval_hours'],
-			'duration_minutes': server.data.schedule['water']['duration_minutes'],
-		},
-	})
+		return Response(404)
+	return Response(200).json(server.data.schedule)
 
 
 def web_gdb1_path(server: Server, client: Socket, req: Request) -> Response | None:
@@ -188,11 +179,13 @@ def web_gdb1_path(server: Server, client: Socket, req: Request) -> Response | No
 	seconds = data['seconds']
 	data = server.database.execute(f'''
 		SELECT * FROM {table}
-		WHERE timestamp >= unixepoch('now') - {seconds};
+		WHERE timestamp >= unixepoch('now') - {seconds}
+		ORDER BY timestamp DESC 
+		LIMIT 20;
 	''', mode=3)
 	if data is None:
 		return Response(500)
-	return Response(200).json(data)
+	return Response(200).json(data[::-1])
 
 
 def get_last_state(database: DataBase) -> dict[str, int]:
@@ -219,10 +212,9 @@ def web_gdb2_path(server: Server, client: Socket, req: Request) -> Response | No
 
 def web_gstr_path(server: Server, client: Socket, req: Request) -> Response | None:
 	if server.data.stream is None:
-		return Response(500)
+		return Response(404)
 	res = Response(200)
 	res.header('Content-type', 'multipart/x-mixed-replace; boundary=frame')
-	info(res.to_text())
 	client.send(res.to_bytes())
 
 	while True:
@@ -249,13 +241,30 @@ def web_sphl_path(server: Server, client: Socket, req: Request) -> Response | No
 		return Response(400)
 	if data['token'] != server.data.token:
 		return Response(400)
+	if type(data['level']) is int:
+		data['level'] = float(data['level'])
 	if type(data['level']) is not float:
 		return Response(400)
 	if (data['level'] < 0) or (data['level'] > 14):
 		return Response(400)
 	
+	if ('time' in data):
+		if type(data['time']) is int:
+			data['time'] = float(data['time'])
+		if type(data['time']) is not float:
+			return Response(400)
+		if data['time'] < 0:
+			return Response(400)
+		timestamp = data['time']
+	else:
+		timestamp = datetime.now().timestamp()
+	
 	server.database.execute(
 		'INSERT INTO ph (timestamp, level) VALUES (?, ?)',
-		(datetime.now().timestamp(), data['level'])
+		(timestamp, data['level'])
 	)
 	return Response(200)
+
+
+def web_gpts_path(server: Server, client: Socket, req: Request) -> Response | None:
+	return Response(200).json(server.data.plants)
